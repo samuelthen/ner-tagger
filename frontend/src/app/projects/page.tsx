@@ -1,8 +1,10 @@
+// src/app/projects/page.tsx
 'use client'
 
 import { useState } from 'react'
 import Link from 'next/link'
 import MainLayout from '@/components/layout/MainLayout'
+import NewProjectModal from '@/components/projects/NewProjectModal'
 import { Plus, Search, Filter, MoreVertical, FileText, Users, Calendar } from 'lucide-react'
 
 // Mock project data
@@ -32,12 +34,16 @@ const projectsData = [
     updated: '2024-01-17',
     totalItems: 2500,
     labeledItems: 0
-  },
-  // Add more projects as needed
+  }
 ]
 
 export default function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState('')
+  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
+
+  const handleNewProject = () => {
+    setIsNewProjectModalOpen(true)
+  }
 
   return (
     <MainLayout>
@@ -48,7 +54,10 @@ export default function ProjectsPage() {
             <h1 className="text-2xl font-semibold text-gray-900">Projects</h1>
             <p className="mt-1 text-sm text-gray-500">Manage and organize your labeling projects</p>
           </div>
-          <button className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
+          <button 
+            onClick={handleNewProject}
+            className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+          >
             <Plus className="h-4 w-4" />
             New Project
           </button>
@@ -151,7 +160,7 @@ export default function ProjectsPage() {
                 {/* Action buttons */}
                 <div className="mt-4 flex gap-2">
                   <Link
-                    href={`/labeling/${project.id}`}
+                    href={`/projects/${project.id}/label`}
                     className="flex flex-1 items-center justify-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
                   >
                     <FileText className="h-4 w-4" />
@@ -168,6 +177,12 @@ export default function ProjectsPage() {
             </div>
           ))}
         </div>
+
+        {/* New Project Modal */}
+        <NewProjectModal 
+          isOpen={isNewProjectModalOpen}
+          onClose={() => setIsNewProjectModalOpen(false)}
+        />
       </div>
     </MainLayout>
   )
