@@ -1,6 +1,8 @@
+// src/components/layout/MainLayout.tsx
 'use client'
 
 import { ReactNode } from 'react'
+import { usePathname } from 'next/navigation'
 import Navbar from './Navbar'
 import Sidebar from './Sidebar'
 
@@ -10,6 +12,16 @@ interface MainLayoutProps {
 }
 
 export default function MainLayout({ children, requireAuth = true }: MainLayoutProps) {
+  const pathname = usePathname()
+  const publicPaths = ['/', '/login', '/signup']
+  const isPublicRoute = publicPaths.includes(pathname)
+
+  // For public routes, render without nav and sidebar
+  if (isPublicRoute) {
+    return <>{children}</>
+  }
+
+  // For authenticated routes, render with nav and sidebar
   return (
     <div className="min-h-screen">
       <Navbar />

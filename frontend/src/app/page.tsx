@@ -1,43 +1,70 @@
 'use client'
 
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import MainLayout from '@/components/layout/MainLayout'
 import { useAuthStore } from '@/store/auth'
 
 export default function HomePage() {
-  const router = useRouter()
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/dashboard')
-    }
-  }, [isAuthenticated, router])
+  if (isAuthenticated) {
+    redirect('/projects')
+  }
 
   return (
-    <MainLayout requireAuth={false}>
-      <div className="flex min-h-screen flex-col items-center justify-center">
-        <h1 className="mb-8 text-4xl font-bold text-gray-900">Welcome to DataLabel</h1>
-        <p className="mb-8 text-center text-lg text-gray-600">
-          A powerful platform for data labeling and annotation
-        </p>
-        <div className="space-x-4">
-          <Link
-            href="/login"
-            className="rounded-md bg-blue-600 px-6 py-3 text-white hover:bg-blue-700"
-          >
-            Sign In
-          </Link>
-          <Link
-            href="/register"
-            className="rounded-md border border-gray-300 px-6 py-3 text-gray-700 hover:bg-gray-50"
-          >
-            Get Started
-          </Link>
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <nav className="bg-white shadow-sm">
+        <div className="mx-auto max-w-7xl px-4 py-4">
+          <div className="flex items-center justify-between">
+            <Link href="/" className="text-xl font-bold text-gray-900">
+              CrocodAI
+            </Link>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/login"
+                className="text-sm font-medium text-gray-700 hover:text-gray-900"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/signup"  
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+              >
+                Get Started
+              </Link>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <div className="flex min-h-[calc(100vh-72px)] flex-col items-center justify-center px-4">
+        <div className="mx-auto max-w-3xl text-center">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl md:text-6xl">
+            Data Labeling Made{' '}
+            <span className="text-green-600">Simple</span>
+          </h1>
+          <p className="mx-auto mt-6 max-w-xl text-lg text-gray-600">
+            A powerful platform for efficient data labeling and annotation. 
+            Build better AI models with high-quality training data.
+          </p>
+          <div className="mt-10 flex items-center justify-center gap-4">
+            <Link
+              href="/signup" 
+              className="rounded-lg bg-green-600 px-6 py-3 text-base font-medium text-white shadow-sm hover:bg-green-700"
+            >
+              Get Started
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-lg border border-gray-300 bg-white px-6 py-3 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+            >
+              Sign In
+            </Link>
+          </div>
         </div>
       </div>
-    </MainLayout>
+    </div>
   )
 }

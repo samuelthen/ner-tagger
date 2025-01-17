@@ -4,7 +4,7 @@ import { ReactNode, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuthStore } from '@/store/auth'
 
-const publicPaths = ['/login', '/register', '/']
+const publicPaths = ['/login', '/signup', '/']
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
