@@ -32,3 +32,23 @@ export interface Project {
       value: string
     }>
   }
+
+  export interface File {
+    id: number
+    project_id: number
+    name: string
+    text_content: string  // Changed from content to match DB
+    created_at: string
+    updated_at: string
+  }
+  
+  export interface Label {
+    id: string // Changed to string to match component
+    file_id: number
+    type: string
+    start: number
+    end: number
+    value: string
+    created_at: string
+    updated_at: string
+  }

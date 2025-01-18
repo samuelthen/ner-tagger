@@ -2,13 +2,7 @@
 
 import { useState, useEffect, useCallback, JSX } from 'react'
 
-interface Label {
-  id: string
-  start: number
-  end: number
-  type: string
-  text: string
-}
+import { Label } from '@/types/project'
 
 interface EntityType {
   key: string
@@ -24,11 +18,26 @@ const entityTypes: EntityType[] = [
   { key: 'GEO', name: 'Geopolitical', color: '#F59E0B', hotkey: '4' },
   { key: 'DAT', name: 'Date', color: '#8B5CF6', hotkey: '5' },
 ]
+interface TextLabelerProps {
+  text: string
+  initialLabels?: Label[]  // Using the Label type from your types
+  onCreateLabel?: (type: string, start: number, end: number, value: string) => Promise<void>
+}
 
-export default function TextLabeler() {
-  const [text, setText] = useState<string>('')
-  const [labels, setLabels] = useState<Label[]>([])
-  const [selectedText, setSelectedText] = useState<{text: string, start: number, end: number} | null>(null)
+interface SelectionState {
+  text: string
+  start: number
+  end: number
+}
+
+export default function TextLabeler({ 
+  text: initialText, 
+  initialLabels = [], 
+  onCreateLabel 
+}: TextLabelerProps) {
+  const [text, setText] = useState<string>(initialText)
+  const [labels, setLabels] = useState<Label[]>(initialLabels)
+  const [selectedText, setSelectedText] = useState<SelectionState | null>(null)
   const [selectedEntityType, setSelectedEntityType] = useState<string>('')
 
   // Handle text selection
@@ -63,22 +72,37 @@ export default function TextLabeler() {
   }, [handleKeyPress])
 
   // Add a new label
-  const addLabel = (entityTypeKey: string) => {
+  const addLabel = async (entityTypeKey: string) => {
     if (!selectedText) return
 
-    const newLabel: Label = {
-      id: Date.now().toString(),
-      start: selectedText.start,
-      end: selectedText.end,
-      type: entityTypeKey,
-      text: selectedText.text
+    try {
+      if (onCreateLabel) {
+        await onCreateLabel(
+          entityTypeKey,
+          selectedText.start,
+          selectedText.end,
+          selectedText.text // this will be the value field in the database
+        )
+      }
+
+      const newLabel: Label = {
+        id: Date.now().toString(), // temporary ID until DB assigns one
+        file_id: 0, // this will be set by the backend
+        type: entityTypeKey,
+        start: selectedText.start,
+        end: selectedText.end,
+        value: selectedText.text,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+
+      setLabels([...labels, newLabel])
+      setSelectedText(null)
+      window.getSelection()?.removeAllRanges()
+    } catch (error) {
+      console.error('Error adding label:', error)
     }
-
-    setLabels([...labels, newLabel])
-    setSelectedText(null)
-    window.getSelection()?.removeAllRanges()
   }
-
   // Remove a label
   const removeLabel = (labelId: string) => {
     setLabels(labels.filter(label => label.id !== labelId))

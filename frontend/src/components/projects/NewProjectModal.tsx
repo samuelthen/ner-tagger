@@ -1,81 +1,173 @@
+// src/components/projects/NewProjectModal.tsx
 'use client'
 
-import { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { X } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 
 interface NewProjectModalProps {
   isOpen: boolean
   onClose: () => void
+  onProjectCreated?: () => void
 }
 
-export default function NewProjectModal({ isOpen, onClose }: NewProjectModalProps) {
-  const router = useRouter()
-  const fileInputRef = useRef<HTMLInputElement>(null)
+export default function NewProjectModal({ 
+  isOpen, 
+  onClose, 
+  onProjectCreated 
+}: NewProjectModalProps) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    type: 'NER',
-    labels: [] as string[]
+    type: 'NER'
   })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    // Here you would typically make an API call to create the project
-    // For now, we'll simulate it
-    const projectId = Date.now() // Simulate a unique ID
-    router.push(`/projects/${projectId}/label`)
-  }
-
-  const handleFileClick = () => {
-    fileInputRef.current?.click()
-  }
 
   if (!isOpen) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="w-full max-w-md rounded-lg bg-white p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Create New Project</h2>
-          <button onClick={onClose} className="rounded-full p-1 hover:bg-gray-100">
-            <X className="h-5 w-5 text-gray-900" />
-          </button>
-        </div>
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      type: 'NER'
+    })
+    setError(null)
+  }
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Project Name */}
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    
+    try {
+      setLoading(true)
+
+      // Get the current user's ID
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      
+      if (userError) {
+        throw new Error('Authentication error: ' + userError.message)
+      }
+
+      if (!user) {
+        throw new Error('You must be logged in to create a project')
+      }
+
+      console.log('Creating project with data:', {
+        ...formData,
+        created_by: user.id,
+        status: 'Created'
+      })
+
+      // Insert new project
+      const { data: project, error: projectError } = await supabase
+        .from('projects')
+        .insert([{
+          name: formData.name,
+          description: formData.description,
+          type: formData.type,
+          status: 'Created',
+          created_by: user.id
+        }])
+        .select()
+        .single()
+
+      if (projectError) {
+        console.error('Supabase error:', projectError)
+        throw new Error(projectError.message)
+      }
+
+      if (!project) {
+        throw new Error('Failed to create project: No data returned')
+      }
+
+      console.log('Project created successfully:', project)
+
+      // Add creator to user_activities
+      const { error: activityError } = await supabase
+        .from('user_activities')
+        .insert([{
+          project_id: project.id,
+          user_id: user.id,
+          activity_type: 'creator'
+        }])
+
+      if (activityError) {
+        console.error('Error adding user activity:', activityError)
+        // Don't throw here, as the project was created successfully
+      }
+
+      // Reset form and close modal
+      resetForm()
+      onProjectCreated?.()
+      onClose()
+
+    } catch (error: any) {
+      console.error('Error creating project:', error)
+      setError(error.message || 'Failed to create project')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleClose = () => {
+    if (!loading) {
+      resetForm()
+      onClose()
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black bg-opacity-50">
+      <div className="relative w-full max-w-md rounded-lg bg-white p-6">
+        <button
+          onClick={handleClose}
+          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+          disabled={loading}
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        <h2 className="text-xl font-semibold text-gray-900">Create New Project</h2>
+        <p className="mt-1 text-sm text-gray-500">
+          Create a new labeling project. You can add team members and data files later.
+        </p>
+
+        {error && (
+          <div className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="mt-6 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-900">Project Name</label>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+              Project Name
+            </label>
             <input
               type="text"
-              required
+              id="name"
+              placeholder="Enter project name"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
-              placeholder="e.g., Customer Support NER"
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              disabled={loading}
+              required
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm 
+                        focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
             />
           </div>
 
-          {/* Project Description */}
           <div>
-            <label className="block text-sm font-medium text-gray-900">Description</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
-              rows={3}
-              placeholder="Brief description of your project"
-            />
-          </div>
-
-          {/* Project Type */}
-          <div>
-            <label className="block text-sm font-medium text-gray-900">Project Type</label>
+            <label htmlFor="type" className="block text-sm font-medium text-gray-700">
+              Project Type
+            </label>
             <select
+              id="type"
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+              onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+              disabled={loading}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm 
+                        focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
             >
               <option value="NER">Named Entity Recognition</option>
               <option value="Classification">Text Classification</option>
@@ -83,75 +175,39 @@ export default function NewProjectModal({ isOpen, onClose }: NewProjectModalProp
             </select>
           </div>
 
-          {/* Label Set */}
           <div>
-            <label className="block text-sm font-medium text-gray-900">Label Set</label>
-            <div className="mt-2 space-y-2">
-              {formData.type === 'NER' && (
-                <>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" className="rounded text-green-600" />
-                    <span className="text-sm text-gray-900">Person (PER)</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" className="rounded text-green-600" />
-                    <span className="text-sm text-gray-900">Organization (ORG)</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" className="rounded text-green-600" />
-                    <span className="text-sm text-gray-900">Location (LOC)</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" className="rounded text-green-600" />
-                    <span className="text-sm text-gray-900">Date (DATE)</span>
-                  </label>
-                </>
-              )}
-            </div>
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+              Description
+            </label>
+            <textarea
+              id="description"
+              placeholder="Describe your project"
+              value={formData.description}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              disabled={loading}
+              rows={3}
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm 
+                        focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+            />
           </div>
 
-          {/* Upload Data */}
-          <div>
-            <label className="block text-sm font-medium text-gray-900">Upload Data</label>
-            <div className="mt-1 flex justify-center rounded-md border-2 border-dashed border-gray-300 px-6 py-4">
-              <div className="text-center">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept=".txt,.csv,.json"
-                  multiple
-                  onChange={(e) => {
-                    // Handle file upload
-                    console.log(e.target.files)
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleFileClick}
-                  className="text-sm text-gray-900 hover:text-gray-900"
-                >
-                  Click to upload or drag and drop
-                  <p className="text-xs text-gray-900">CSV, TXT, or JSON up to 10MB</p>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-3 pt-4">
+          <div className="flex justify-end gap-3">
             <button
               type="button"
-              onClick={onClose}
-              className="rounded-md border px-4 py-2 text-sm text-gray-900 hover:bg-gray-50"
+              onClick={handleClose}
+              disabled={loading}
+              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium 
+                       text-gray-700 hover:bg-gray-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="rounded-md bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700"
+              disabled={loading}
+              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white 
+                       hover:bg-green-700 disabled:bg-green-300"
             >
-              Create Project
+              {loading ? 'Creating...' : 'Create Project'}
             </button>
           </div>
         </form>
