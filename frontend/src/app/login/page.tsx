@@ -21,7 +21,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      router.push('/projects')
+      router.push('/dashboard')
     } catch (error: any) {
       setError(error.message || 'Invalid email or password')
     } finally {
