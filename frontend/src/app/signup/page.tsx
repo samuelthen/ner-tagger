@@ -1,29 +1,45 @@
 'use client'
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/store/auth';
 
 export default function SignUpPage() {
-  const router = useRouter();
   const signup = useAuthStore((state) => state.signup);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess('');
     setIsLoading(true);
 
     try {
-      await signup(email, password, name);
-      router.push('/projects');
-    } catch (error: any) {
-      setError(error.message || 'Error creating account. Please try again.');
+      // Basic validation
+      if (password.length < 6) {
+        throw new Error('Password must be at least 6 characters long');
+      }
+      
+      if (!name.trim()) {
+        throw new Error('Please enter your name');
+      }
+
+      const result = await signup(email, password, name);
+      
+      if (result.success) {
+        setSuccess(result.message);
+      } else {
+        setError(result.message);
+      }
+      
+    } catch (err) {
+      console.error('Signup error:', err);
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -31,7 +47,6 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
       <nav className="px-4 py-3">
         <div className="mx-auto max-w-7xl">
           <Link href="/" className="text-xl font-bold text-gray-900">
@@ -40,7 +55,6 @@ export default function SignUpPage() {
         </div>
       </nav>
 
-      {/* Signup Form */}
       <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
         <div className="w-full max-w-md">
           <div className="rounded-xl bg-white px-8 pb-8 pt-6 shadow-sm">
@@ -50,8 +64,14 @@ export default function SignUpPage() {
             </div>
             
             {error && (
-              <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="mb-6 rounded-lg bg-red-50 p-4 text-sm text-red-700">
                 {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-6 rounded-lg bg-green-50 p-4 text-sm text-green-700">
+                {success}
               </div>
             )}
 
@@ -68,6 +88,7 @@ export default function SignUpPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
+                  disabled={isLoading || !!success}
                 />
               </div>
 
@@ -83,6 +104,8 @@ export default function SignUpPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  disabled={isLoading || !!success}
+                  autoComplete="email"
                 />
               </div>
               
@@ -94,19 +117,22 @@ export default function SignUpPage() {
                   className="mt-2 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
                   id="password"
                   type="password"
-                  placeholder="Create a password"
+                  placeholder="Create a password (min. 6 characters)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={isLoading || !!success}
+                  autoComplete="new-password"
+                  minLength={6}
                 />
               </div>
 
               <button
                 className="w-full rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !!success}
               >
-                {isLoading ? 'Signing up...' : 'Sign up'}
+                {isLoading ? 'Creating account...' : 'Create account'}
               </button>
             </form>
 
