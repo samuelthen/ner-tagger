@@ -191,82 +191,92 @@ export default function ProjectsPage() {
             </div>
           ) : (
             filteredProjects.map((project) => (
-              <div key={project.id} className="rounded-lg border bg-white shadow-sm">
-                <div className="p-6">
-                  {/* Project Header */}
+              <div key={project.id} className="rounded-lg border bg-white shadow-sm flex flex-col h-[360px]">
+                {/* Top content area */}
+                <div className="p-6 flex flex-col h-full">
+                  {/* Header section - stays at top */}
                   <div className="flex items-start justify-between">
-                    <div>
+                    <div className="flex-1">
                       <Link 
                         href={`/projects/${project.id}`}
                         className="text-lg font-medium text-gray-900 hover:text-green-600"
                       >
                         {project.name}
                       </Link>
-                      <p className="mt-1 text-sm text-gray-500">{project.description}</p>
+                      <div className="mt-1 h-14 overflow-y-auto">
+                        <p className="text-sm text-gray-500">
+                          {project.description || "No description provided"}
+                        </p>
+                      </div>
                     </div>
-                    <button className="rounded p-1 hover:bg-gray-100">
+                    <button className="rounded p-1 hover:bg-gray-100 ml-4">
                       <MoreVertical className="h-5 w-5 text-gray-400" />
                     </button>
                   </div>
 
-                  {/* Status and Type */}
-                  <div className="mt-4 flex items-center gap-4">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                      ${project.status === 'In Progress' ? 'bg-green-100 text-green-700' : 
-                        project.status === 'Completed' ? 'bg-blue-100 text-blue-700' : 
-                        'bg-gray-100 text-gray-700'}`}
-                    >
-                      {project.status}
-                    </span>
-                    <span className="text-xs text-gray-500">{project.type}</span>
-                  </div>
-
-                  {/* Progress Bar */}
-                  <div className="mt-4">
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>Progress</span>
-                      <span>{project.progress}%</span>
+                  {/* Bottom section - pushed to bottom */}
+                  <div className="mt-auto flex flex-col gap-3">
+                    {/* Status and Type */}
+                    <div className="flex items-center gap-4">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                        ${project.status === 'In Progress' ? 'bg-green-100 text-green-700' : 
+                          project.status === 'Completed' ? 'bg-blue-100 text-blue-700' : 
+                          'bg-gray-100 text-gray-700'}`}
+                      >
+                        {project.status}
+                      </span>
+                      <span className="text-xs text-gray-500">{project.type}</span>
                     </div>
-                    <div className="mt-1 h-2 rounded-full bg-gray-100">
-                      <div
-                        className="h-2 rounded-full bg-green-600"
-                        style={{ width: `${project.progress}%` }}
-                      />
-                    </div>
-                  </div>
 
-                  {/* Project Stats */}
-                  <div className="mt-4 grid grid-cols-3 gap-4 border-t pt-4">
+                    {/* Progress Bar */}
                     <div>
-                      <p className="text-xs text-gray-500">Team</p>
-                      <div className="mt-1 flex -space-x-2">
-                        {project.team.map((member, index) => (
-                          <div
-                            key={index}
-                            className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium"
-                            title={member}
-                          >
-                            {member.charAt(0)}
-                          </div>
-                        ))}
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>Progress</span>
+                        <span>{project.progress}%</span>
+                      </div>
+                      <div className="mt-1 h-2 rounded-full bg-gray-100">
+                        <div
+                          className="h-2 rounded-full bg-green-600"
+                          style={{ width: `${project.progress}%` }}
+                        />
                       </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Items</p>
-                      <p className="mt-1 text-sm font-medium text-gray-900">
-                        {project.labeledItems} / {project.totalItems}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Updated</p>
-                      <p className="mt-1 text-sm font-medium text-gray-900">
-                        {new Date(project.updated).toLocaleDateString()}
-                      </p>
+
+                    {/* Project Stats */}
+                    <div className="grid grid-cols-3 gap-4 border-t pt-3">
+                      <div>
+                        <p className="text-xs text-gray-500">Team</p>
+                        <div className="mt-1 flex -space-x-2">
+                          {project.team.map((member, index) => (
+                            <div
+                              key={index}
+                              className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium"
+                              title={member}
+                            >
+                              {member.charAt(0)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Items</p>
+                        <p className="mt-1 text-sm font-medium text-gray-900">
+                          {project.labeledItems} / {project.totalItems}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Updated</p>
+                        <p className="mt-1 text-sm font-medium text-gray-900">
+                          {new Date(project.updated).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Action Buttons */}
-                  <div className="mt-4 flex gap-2">
+                {/* Action Buttons */}
+                <div className="px-6 pb-4">
+                  <div className="flex gap-2">
                     <Link
                       href={`/projects/${project.id}/label`}
                       className="flex flex-1 items-center justify-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100"

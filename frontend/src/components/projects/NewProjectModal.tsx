@@ -139,7 +139,7 @@ export default function NewProjectModal({
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+        <form onSubmit={handleSubmit} className="mt-6 space-y-6 text-black">
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700">
               Project Name
