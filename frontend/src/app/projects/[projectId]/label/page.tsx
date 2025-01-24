@@ -8,6 +8,7 @@ import { Upload } from 'lucide-react'
 import { useLabels } from '@/hooks/useLabels'
 import { useFiles } from '@/hooks/useFiles'
 import { Label, LabelType } from '@/types/project'
+import { supabase } from '@/lib/supabase'
 
 // Define supported file types
 const SUPPORTED_EXTENSIONS = ['.txt', '.csv', '.json']
@@ -71,13 +72,15 @@ export default function LabelingPage() {
   const projectId = params.projectId as string
   
   const [uploadedText, setUploadedText] = useState<string>('')
+  const [currentFileId, setCurrentFileId] = useState<string | null>(null)
   const [error, setError] = useState<string>('')
   
   // Get files and labels from hooks
   const { 
     files, 
     loading: filesLoading, 
-    error: filesError 
+    error: filesError,
+    fetchFiles 
   } = useFiles(projectId)
   
   const [currentFileIndex, setCurrentFileIndex] = useState(0)
@@ -88,7 +91,7 @@ export default function LabelingPage() {
     createLabel,
     loading: labelsLoading,
     error: labelsError 
-  } = useLabels(currentFile?.id?.toString() ?? '')
+  } = useLabels(currentFileId ?? '')
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
@@ -106,23 +109,78 @@ export default function LabelingPage() {
         return
       }
 
-      // Create a FileReader
-      const reader = new FileReader()
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        setError('Authentication required')
+        return
+      }
 
-      reader.onload = (e: ProgressEvent<FileReader>) => {
-        const content = e.target?.result
-        if (typeof content === 'string') {
-          setUploadedText(content)
-        } else {
-          setError('Error reading file content')
+      // Read file content
+      const text = await file.text()
+      
+      try {
+        // Log the data we're trying to insert
+        const timestamp = new Date().toISOString()
+        const fileData = {
+          project_id: parseInt(projectId),
+          content: text,
+          file_name: file.name.substring(0, 255), // Ensure it fits in varchar
+          file_type: fileExtension.slice(1).substring(0, 255), // Remove dot and ensure it fits in varchar
+          created_at: timestamp,
+          updated_at: timestamp
         }
-      }
+        console.log('Attempting to insert file with data:', { 
+          ...fileData, 
+          content: `${text.slice(0, 100)}... (truncated)` 
+        })
 
-      reader.onerror = () => {
-        setError('Error reading file')
-      }
+        // Save file to Supabase
+        const { data: insertedData, error: fileError } = await supabase
+          .from('files')
+          .insert(fileData)
+          .select()
+          .single()
 
-      reader.readAsText(file)
+        if (fileError) {
+          console.error('Supabase file insert error:', {
+            error: fileError,
+            errorMessage: fileError.message,
+            errorDetails: fileError.details,
+            hint: fileError.hint,
+            code: fileError.code
+          })
+          setError(`Database error: ${fileError.message || 'Unknown error occurred'}`)
+          return
+        }
+
+        if (!insertedData) {
+          setError('File was uploaded but no data was returned')
+          return
+        }
+
+        // Log user activity
+        const { error: activityError } = await supabase
+          .from('user_activities')
+          .insert({
+            project_id: parseInt(projectId),
+            user_id: user.id,
+            activity_type: 'file_upload',
+            created_at: new Date().toISOString()
+          })
+
+        if (activityError) {
+          console.error('Activity logging error:', activityError)
+        }
+
+        setCurrentFileId(insertedData.id.toString())
+        setUploadedText(text)
+        fetchFiles() // Refresh the files list
+
+      } catch (dbError) {
+        console.error('Database operation error:', dbError)
+        setError('Failed to save file to database')
+      }
 
     } catch (err) {
       console.error('File upload error:', err)
@@ -136,24 +194,105 @@ export default function LabelingPage() {
     endOffset: number,
     value: string
   ) => {
+    if (!currentFileId) {
+      console.error('No file ID available')
+      setError('No file selected')
+      return
+    }
+
     try {
-      // Convert labelTypeId to string since that's what the hook expects
-      await createLabel(
-        String(labelTypeId),
-        startOffset,
-        endOffset,
-        value
-      )
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        throw new Error('Authentication required')
+      }
+
+      // Insert label into Supabase
+      const { data: labelData, error: labelError } = await supabase
+        .from('labels')
+        .insert({
+          file_id: parseInt(currentFileId),
+          label_type_id: labelTypeId,
+          start_offset: startOffset,
+          end_offset: endOffset,
+          value: value,
+          created_by: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (labelError) {
+        throw labelError
+      }
+
+      // Log user activity
+      await supabase
+        .from('user_activities')
+        .insert({
+          project_id: parseInt(projectId),
+          user_id: user.id,
+          activity_type: 'create_label',
+          created_at: new Date().toISOString()
+        })
+
+      // Update local labels state through the hook if needed
+      if (createLabel) {
+        await createLabel(
+          String(labelTypeId),
+          startOffset,
+          endOffset,
+          value
+        )
+      }
     } catch (error) {
       console.error('Error creating label:', error)
       setError('Failed to create label')
     }
-  }, [createLabel])
+  }, [currentFileId, projectId, createLabel])
 
   const handleSaveLabels = useCallback(async (labels: Label[]) => {
-    // Implement save functionality if needed
-    console.log('Saving labels:', labels)
-  }, [])
+    if (!currentFileId) {
+      console.error('No file ID available')
+      return
+    }
+
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        throw new Error('Authentication required')
+      }
+
+      // Update all labels in Supabase
+      const { error: updateError } = await supabase
+        .from('labels')
+        .upsert(
+          labels.map(label => ({
+            ...label,
+            file_id: parseInt(currentFileId),
+            updated_at: new Date().toISOString()
+          }))
+        )
+
+      if (updateError) {
+        throw updateError
+      }
+
+      // Log user activity
+      await supabase
+        .from('user_activities')
+        .insert({
+          project_id: parseInt(projectId),
+          user_id: user.id,
+          activity_type: 'save_labels',
+          created_at: new Date().toISOString()
+        })
+
+    } catch (error) {
+      console.error('Error saving labels:', error)
+      setError('Failed to save labels')
+    }
+  }, [currentFileId, projectId])
 
   // Loading state
   if (filesLoading || labelsLoading) {
