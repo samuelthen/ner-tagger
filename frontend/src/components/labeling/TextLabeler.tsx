@@ -186,15 +186,6 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
           <button className="rounded-md p-1.5 hover:bg-gray-100">
             <Settings className="h-5 w-5 text-gray-600" />
           </button>
-          <div className="flex items-center gap-2 text-sm text-gray-600">
-            <button className="rounded-md p-1 hover:bg-gray-100">
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <span>{currentIndex} of {totalItems}</span>
-            <button className="rounded-md p-1 hover:bg-gray-100">
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </div>
           <button 
             onClick={() => onSaveLabels(labels)}
             className="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"

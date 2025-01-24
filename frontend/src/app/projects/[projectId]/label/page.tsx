@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import MainLayout from '@/components/layout/MainLayout'
 import TextLabeler from '@/components/labeling/TextLabeler'
-import { Upload } from 'lucide-react'
+import { Upload, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useLabels } from '@/hooks/useLabels'
 import { useFiles } from '@/hooks/useFiles'
 import { Label, LabelType } from '@/types/project'
@@ -68,30 +68,50 @@ const DEFAULT_LABEL_TYPES: LabelType[] = [
 ]
 
 export default function LabelingPage() {
-  const params = useParams()
-  const projectId = params.projectId as string
+    const params = useParams()
+    const projectId = params.projectId as string
+    
+    const [uploadedText, setUploadedText] = useState<string>('')
+    const [currentFileId, setCurrentFileId] = useState<string | null>(null)
+    const [error, setError] = useState<string>('')
+    const [dbLabelTypes, setDbLabelTypes] = useState<LabelType[]>([])
+    const [currentFileIndex, setCurrentFileIndex] = useState(0)
+    
+    // Get files and labels from hooks
+    const { 
+      files, 
+      loading: filesLoading, 
+      error: filesError,
+      fetchFiles 
+    } = useFiles(projectId)
   
-  const [uploadedText, setUploadedText] = useState<string>('')
-  const [currentFileId, setCurrentFileId] = useState<string | null>(null)
-  const [error, setError] = useState<string>('')
-  const [dbLabelTypes, setDbLabelTypes] = useState<LabelType[]>([])
+    const { 
+      labels, 
+      loading: labelsLoading,
+      error: labelsError 
+    } = useLabels(currentFileId ?? '')
   
-  // Get files and labels from hooks
-  const { 
-    files, 
-    loading: filesLoading, 
-    error: filesError,
-    fetchFiles 
-  } = useFiles(projectId)
+    // Set current file ID when files are loaded or index changes
+    useEffect(() => {
+      if (files && files.length > 0) {
+        const file = files[currentFileIndex]
+        setCurrentFileId(String(file.id))
+        setUploadedText(file.content)
+      }
+    }, [files, currentFileIndex])
   
-  const [currentFileIndex, setCurrentFileIndex] = useState(0)
-  const currentFile = files[currentFileIndex]
-
-  const { 
-    labels, 
-    loading: labelsLoading,
-    error: labelsError 
-  } = useLabels(currentFileId ?? '')
+    // Navigation handlers
+    const handlePreviousFile = () => {
+      if (currentFileIndex > 0) {
+        setCurrentFileIndex(prev => prev - 1)
+      }
+    }
+  
+    const handleNextFile = () => {
+      if (currentFileIndex < files.length - 1) {
+        setCurrentFileIndex(prev => prev + 1)
+      }
+    }
 
   // Initialize label types
   useEffect(() => {
@@ -361,12 +381,12 @@ export default function LabelingPage() {
     )
   }
 
-  const showPlaceholder = !uploadedText && !currentFile?.content
+  const showPlaceholder = files.length === 0 && !uploadedText
 
   return (
     <MainLayout>
       <div className="flex h-[calc(100vh-64px)] flex-col">
-        {/* File upload toolbar */}
+        {/* File upload and navigation toolbar */}
         <div className="flex items-center justify-between border-b bg-white px-4 py-2">
           <div className="flex items-center gap-4">
             <label className="flex cursor-pointer items-center gap-2 rounded-md bg-green-600 px-3 py-1.5 text-sm text-white hover:bg-green-700">
@@ -385,6 +405,29 @@ export default function LabelingPage() {
               </span>
             )}
           </div>
+          
+          {/* File navigation controls */}
+          {files.length > 0 && (
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handlePreviousFile}
+                disabled={currentFileIndex === 0}
+                className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <span className="text-sm text-gray-600">
+                File {currentFileIndex + 1} of {files.length}
+              </span>
+              <button
+                onClick={handleNextFile}
+                disabled={currentFileIndex === files.length - 1}
+                className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            </div>
+          )}
         </div>
 
         {showPlaceholder ? (
@@ -398,7 +441,7 @@ export default function LabelingPage() {
         ) : (
           <div className="flex-1">
             <TextLabeler 
-              text={uploadedText || currentFile?.content || ''}
+              text={uploadedText || files[currentFileIndex]?.content || ''}
               initialLabels={labels}
               labelTypes={dbLabelTypes.length > 0 ? dbLabelTypes : DEFAULT_LABEL_TYPES}
               onCreateLabel={handleCreateLabel}
