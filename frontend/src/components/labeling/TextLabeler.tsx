@@ -46,6 +46,20 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentIndex, setCurrentIndex] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(1);
+  const [labelSearchQuery, setLabelSearchQuery] = useState('');
+  const [searchOptions, setSearchOptions] = useState({
+    searchAllFiles: false,
+    regexSearch: false,
+    exactMatch: false
+  });
+
+  // Filter labels based on search query
+  const filteredLabels = labelSearchQuery
+    ? labels.filter(label => 
+        label.value.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+        entityTypes.find(type => type.key === label.type)?.name.toLowerCase().includes(labelSearchQuery.toLowerCase())
+      )
+    : labels;
 
   // Handle text selection
   const handleTextSelection = useCallback(() => {
@@ -174,7 +188,7 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
             <input
               type="text"
               value={searchQuery}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search in text..."
               className="w-64 border-none text-sm focus:outline-none"
             />
@@ -246,6 +260,55 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
                   <span className="text-xs text-gray-500">{entityType.hotkey}</span>
                 </button>
               ))}
+            </div>
+
+            {/* Label Search Section */}
+            <div className="space-y-2 pt-4">
+              <h3 className="font-semibold text-gray-900">Search Labels</h3>
+              <div className="flex items-center gap-2 rounded-md border px-2 py-1.5">
+                <Search className="h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={labelSearchQuery}
+                  onChange={(e) => setLabelSearchQuery(e.target.value)}
+                  placeholder="Search labels..."
+                  className="w-full text-sm focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Search Options Section */}
+            <div className="space-y-2 pt-4">
+              <h3 className="font-semibold text-gray-900">Search Options</h3>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={searchOptions.searchAllFiles}
+                    onChange={(e) => setSearchOptions(prev => ({ ...prev, searchAllFiles: e.target.checked }))}
+                    className="rounded text-blue-600"
+                  />
+                  <span className="text-sm text-gray-700">Search all files</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={searchOptions.regexSearch}
+                    onChange={(e) => setSearchOptions(prev => ({ ...prev, regexSearch: e.target.checked }))}
+                    className="rounded text-blue-600"
+                  />
+                  <span className="text-sm text-gray-700">Regex search</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={searchOptions.exactMatch}
+                    onChange={(e) => setSearchOptions(prev => ({ ...prev, exactMatch: e.target.checked }))}
+                    className="rounded text-blue-600"
+                  />
+                  <span className="text-sm text-gray-700">Exact match</span>
+                </label>
+              </div>
             </div>
 
             <div className="mt-6">
