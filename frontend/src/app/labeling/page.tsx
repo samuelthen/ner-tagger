@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useParams } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import MainLayout from '@/components/layout/MainLayout'
 import TextLabeler from '@/components/labeling/TextLabeler'
 import { Upload } from 'lucide-react'
@@ -9,7 +11,7 @@ import { Label, LabelType } from '@/types/project'
 // Define supported file types
 const SUPPORTED_EXTENSIONS = ['.txt', '.csv', '.json']
 
-// Default label types (you might want to fetch these from your backend)
+// Define default label types
 const DEFAULT_LABEL_TYPES: LabelType[] = [
   { 
     id: 1, 
@@ -19,7 +21,7 @@ const DEFAULT_LABEL_TYPES: LabelType[] = [
     color: '#EF4444', 
     hotkey: '1', 
     description: 'Person entities like names of people',
-    created_at: new Date().toISOString() 
+    created_at: new Date().toISOString()
   },
   { 
     id: 2, 
@@ -29,7 +31,7 @@ const DEFAULT_LABEL_TYPES: LabelType[] = [
     color: '#3B82F6', 
     hotkey: '2', 
     description: 'Organization entities like companies and institutions',
-    created_at: new Date().toISOString() 
+    created_at: new Date().toISOString()
   },
   { 
     id: 3, 
@@ -39,7 +41,7 @@ const DEFAULT_LABEL_TYPES: LabelType[] = [
     color: '#10B981', 
     hotkey: '3', 
     description: 'Location entities like cities and countries',
-    created_at: new Date().toISOString() 
+    created_at: new Date().toISOString()
   },
   { 
     id: 4, 
@@ -49,7 +51,7 @@ const DEFAULT_LABEL_TYPES: LabelType[] = [
     color: '#F59E0B', 
     hotkey: '4', 
     description: 'Geopolitical entities like governments and agencies',
-    created_at: new Date().toISOString() 
+    created_at: new Date().toISOString()
   },
   { 
     id: 5, 
@@ -59,12 +61,16 @@ const DEFAULT_LABEL_TYPES: LabelType[] = [
     color: '#8B5CF6', 
     hotkey: '5', 
     description: 'Date and time expressions',
-    created_at: new Date().toISOString() 
+    created_at: new Date().toISOString()
   },
 ]
 
 export default function LabelingPage() {
+  const params = useParams()
+  const projectId = Number(params.projectId)
+
   const [currentText, setCurrentText] = useState('')
+  const [currentFileId, setCurrentFileId] = useState<number | null>(null)
   const [error, setError] = useState('')
   const [labels, setLabels] = useState<Label[]>([])
   const [labelTypes] = useState<LabelType[]>(DEFAULT_LABEL_TYPES)
@@ -84,12 +90,84 @@ export default function LabelingPage() {
         return
       }
 
+      // Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError) {
+        console.error('Authentication error:', userError)
+        setError('Authentication failed. Please sign in.')
+        return
+      }
+      
+      if (!user) {
+        setError('No authenticated user found')
+        return
+      }
+
+      console.log('Current project ID:', projectId)
+      if (!projectId) {
+        setError('No project ID found')
+        return
+      }
+
       // Read file content
       const text = await file.text()
-      setCurrentText(text)
+      console.log('File content length:', text.length)
+      
+      try {
+        // Save file to Supabase
+        const { data: fileData, error: fileError } = await supabase
+          .from('files')
+          .insert({
+            project_id: projectId,
+            content: text,
+            file_name: file.name,
+            file_type: fileExtension.slice(1), // Remove the dot
+            created_by: user.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .select()
+          .single()
+
+        if (fileError) {
+          console.error('Supabase file insert error:', fileError)
+          setError(`Database error: ${fileError.message}`)
+          return
+        }
+
+        if (!fileData) {
+          setError('File was uploaded but no data was returned')
+          return
+        }
+
+        console.log('File uploaded successfully:', fileData.id)
+
+        // Log user activity
+        const { error: activityError } = await supabase
+          .from('user_activities')
+          .insert({
+            project_id: projectId,
+            user_id: user.id,
+            activity_type: 'file_upload',
+            created_at: new Date().toISOString()
+          })
+
+        if (activityError) {
+          console.error('Activity logging error:', activityError)
+          // Don't return here, as the file upload was successful
+        }
+
+        setCurrentFileId(fileData.id)
+        setCurrentText(text)
+      } catch (dbError) {
+        console.error('Database operation error:', dbError)
+        setError('Failed to save file to database')
+        return
+      }
+
     } catch (err) {
-      setError('Error processing file')
-      console.error('File upload error:', err)
+      console.error('Unexpected error during file upload:', err)
+      setError(err instanceof Error ? err.message : 'Unexpected error during file upload')
     }
   }
 
@@ -99,32 +177,96 @@ export default function LabelingPage() {
     endOffset: number,
     value: string
   ) => {
+    if (!currentFileId) {
+      console.error('No file ID available')
+      return
+    }
+
     try {
-      // Create a new label
-      const newLabel: Label = {
-        id: Date.now(), // Temporary numeric ID
-        file_id: 0,
-        label_type_id: labelTypeId,
-        start_offset: startOffset,
-        end_offset: endOffset,
-        value,
-        created_by: 'user', // Should be replaced with actual user ID
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        throw new Error('Authentication required')
       }
 
-      setLabels(prevLabels => [...prevLabels, newLabel])
+      // Insert label into Supabase
+      const { data: labelData, error: labelError } = await supabase
+        .from('labels')
+        .insert({
+          file_id: currentFileId,
+          label_type_id: labelTypeId,
+          start_offset: startOffset,
+          end_offset: endOffset,
+          value: value,
+          created_by: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single()
+
+      if (labelError) {
+        throw labelError
+      }
+
+      // Log user activity
+      await supabase
+        .from('user_activities')
+        .insert({
+          project_id: projectId,
+          user_id: user.id,
+          activity_type: 'create_label',
+          created_at: new Date().toISOString()
+        })
+
+      setLabels(prevLabels => [...prevLabels, labelData])
     } catch (error) {
       console.error('Error creating label:', error)
+      setError('Error saving label to database')
     }
-  }, [])
+  }, [currentFileId, projectId])
 
   const handleSaveLabels = useCallback(async (labels: Label[]) => {
-    // Here you would typically save the labels to your backend
-    console.log('Saving labels:', labels)
-  }, [])
+    if (!currentFileId) {
+      console.error('No file ID available')
+      return
+    }
 
-  const showPlaceholder = !currentText
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      if (userError || !user) {
+        throw new Error('Authentication required')
+      }
+
+      // Update all labels in Supabase
+      const { error: updateError } = await supabase
+        .from('labels')
+        .upsert(
+          labels.map(label => ({
+            ...label,
+            file_id: currentFileId,
+            updated_at: new Date().toISOString()
+          }))
+        )
+
+      if (updateError) {
+        throw updateError
+      }
+
+      // Log user activity
+      await supabase
+        .from('user_activities')
+        .insert({
+          project_id: projectId,
+          user_id: user.id,
+          activity_type: 'save_labels',
+          created_at: new Date().toISOString()
+        })
+
+    } catch (error) {
+      console.error('Error saving labels:', error)
+      setError('Error saving labels to database')
+    }
+  }, [currentFileId, projectId])
 
   return (
     <MainLayout>
@@ -150,7 +292,7 @@ export default function LabelingPage() {
           </div>
         </div>
 
-        {showPlaceholder ? (
+        {!currentText ? (
           <div className="flex flex-1 items-center justify-center">
             <div className="text-center text-gray-500">
               <Upload className="mx-auto h-12 w-12" />

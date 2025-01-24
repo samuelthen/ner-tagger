@@ -1,4 +1,3 @@
-// src/app/projects/page.tsx
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -7,23 +6,12 @@ import MainLayout from '@/components/layout/MainLayout'
 import NewProjectModal from '@/components/projects/NewProjectModal'
 import { Plus, Search, Filter, MoreVertical, FileText, Users, Calendar } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { Project } from '@/types/project'
-
-interface DatabaseProject {
-  id: number
-  name: string
-  description: string
-  status: string
-  type: string
-  created_at: string
-  updated_at: string
-  created_by: string
-}
+import { Project, ProjectWithStats } from '@/types/project'
 
 export default function ProjectsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
-  const [projects, setProjects] = useState<Project[]>([])
+  const [projects, setProjects] = useState<ProjectWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,7 +24,6 @@ export default function ProjectsPage() {
       setLoading(true)
       setError(null)
 
-      // Fetch basic project data
       const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
         .select('*')
@@ -51,64 +38,54 @@ export default function ProjectsPage() {
         return
       }
 
-      // Transform projects
-      const transformedProjects = await Promise.all(projectsData.map(async (dbProject: DatabaseProject) => {
-        try {
-          // Count files
-          const { count: totalItems } = await supabase
-            .from('files')
-            .select('*', { count: 'exact', head: true })
-            .eq('project_id', dbProject.id)
-            || { count: 0 }
+      const transformedProjects = await Promise.all(
+        projectsData.map(async (dbProject: Project) => {
+          try {
+            const { count: totalItems } = await supabase
+              .from('files')
+              .select('*', { count: 'exact', head: true })
+              .eq('project_id', dbProject.id)
+              || { count: 0 }
 
-          // Count labels
-          const { count: labeledItems } = await supabase
-            .from('labels')
-            .select('*', { count: 'exact', head: true })
-            .eq('project_id', dbProject.id)
-            || { count: 0 }
+            const { count: labeledItems } = await supabase
+              .from('labels')
+              .select('*', { count: 'exact', head: true })
+              .eq('project_id', dbProject.id)
+              || { count: 0 }
 
-          // Get team members
-          const { data: teamData } = await supabase
-            .from('user_activities')
-            .select('user_id')
-            .eq('project_id', dbProject.id)
-            || { data: [] }
+            const { data: teamData } = await supabase
+              .from('user_activities')
+              .select('user_id')
+              .eq('project_id', dbProject.id)
+              || { data: [] }
 
-          // Get unique user IDs
-          const userIds = [...new Set(teamData?.map(t => t.user_id) || [])]
+            const userIds = [...new Set(teamData?.map(t => t.user_id) || [])]
 
-          // Get user profiles
-          const { data: profilesData } = await supabase
-            .from('profiles')
-            .select('email')
-            .in('id', userIds)
-            || { data: [] }
+            const { data: profilesData } = await supabase
+              .from('profiles')
+              .select('email')
+              .in('id', userIds)
+              || { data: [] }
 
-          // Extract usernames from emails
-          const team = profilesData?.map(profile => 
-            profile.email.split('@')[0]
-          ) || []
+            const teamMembers = profilesData?.map(profile => 
+              profile.email.split('@')[0]
+            ) || []
 
-          return {
-            id: dbProject.id,
-            name: dbProject.name,
-            description: dbProject.description,
-            status: dbProject.status as 'Created' | 'In Progress' | 'Completed',
-            type: dbProject.type as 'NER' | 'Classification' | 'Sentiment',
-            progress:  0, 
-            // totalItems ? Math.round((labeledItems / totalItems) * 100) :
-            team,
-            created: dbProject.created_at,
-            updated: dbProject.updated_at,
-            totalItems: totalItems || 0,
-            labeledItems: labeledItems || 0
+            const progress = totalItems && labeledItems ? Math.round((labeledItems / totalItems) * 100) : 0
+
+            return {
+              ...dbProject,
+              progress,
+              teamMembers,
+              totalItems: totalItems || 0,
+              labeledItems: labeledItems || 0
+            }
+          } catch (err: any) {
+            console.error(`Error transforming project ${dbProject.id}:`, err)
+            throw new Error(`Failed to transform project ${dbProject.id}: ${err.message}`)
           }
-        } catch (err: any) {
-          console.error(`Error transforming project ${dbProject.id}:`, err)
-          throw new Error(`Failed to transform project ${dbProject.id}: ${err.message}`)
-        }
-      }))
+        })
+      )
 
       setProjects(transformedProjects)
     } catch (error: any) {
@@ -194,7 +171,7 @@ export default function ProjectsPage() {
               <div key={project.id} className="rounded-lg border bg-white shadow-sm flex flex-col h-[360px]">
                 {/* Top content area */}
                 <div className="p-6 flex flex-col h-full">
-                  {/* Header section - stays at top */}
+                  {/* Header section */}
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <Link 
@@ -214,7 +191,7 @@ export default function ProjectsPage() {
                     </button>
                   </div>
 
-                  {/* Bottom section - pushed to bottom */}
+                  {/* Bottom section */}
                   <div className="mt-auto flex flex-col gap-3">
                     {/* Status and Type */}
                     <div className="flex items-center gap-4">
@@ -247,7 +224,7 @@ export default function ProjectsPage() {
                       <div>
                         <p className="text-xs text-gray-500">Team</p>
                         <div className="mt-1 flex -space-x-2">
-                          {project.team.map((member, index) => (
+                          {project.teamMembers.map((member, index) => (
                             <div
                               key={index}
                               className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium"
@@ -267,7 +244,7 @@ export default function ProjectsPage() {
                       <div>
                         <p className="text-xs text-gray-500">Updated</p>
                         <p className="mt-1 text-sm font-medium text-gray-900">
-                          {new Date(project.updated).toLocaleDateString()}
+                          {new Date(project.updated_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>

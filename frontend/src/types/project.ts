@@ -64,3 +64,9 @@ export interface FileWithLabels extends File {
 export interface LabelWithType extends Label {
   label_type?: LabelType
 }
+
+export interface ProjectWithStats extends Project {
+  teamMembers: string[];
+  totalItems: number;
+  labeledItems: number;
+}
