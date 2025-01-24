@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import MainLayout from '@/components/layout/MainLayout'
 import TextLabeler from '@/components/labeling/TextLabeler'
@@ -74,6 +74,7 @@ export default function LabelingPage() {
   const [uploadedText, setUploadedText] = useState<string>('')
   const [currentFileId, setCurrentFileId] = useState<string | null>(null)
   const [error, setError] = useState<string>('')
+  const [dbLabelTypes, setDbLabelTypes] = useState<LabelType[]>([])
   
   // Get files and labels from hooks
   const { 
@@ -88,10 +89,63 @@ export default function LabelingPage() {
 
   const { 
     labels, 
-    createLabel,
     loading: labelsLoading,
     error: labelsError 
   } = useLabels(currentFileId ?? '')
+
+  // Initialize label types
+  useEffect(() => {
+    const initializeLabelTypes = async () => {
+      try {
+        // First check if label types already exist for this project
+        const { data: existingTypes, error: fetchError } = await supabase
+          .from('label_types')
+          .select('*')
+          .eq('project_id', parseInt(projectId))
+
+        if (fetchError) {
+          console.error('Error fetching label types:', fetchError)
+          return
+        }
+
+        if (existingTypes && existingTypes.length > 0) {
+          console.log('Using existing label types:', existingTypes)
+          setDbLabelTypes(existingTypes)
+          return
+        }
+
+        // Insert default label types if none exist
+        const { data: insertedTypes, error: insertError } = await supabase
+          .from('label_types')
+          .insert(
+            DEFAULT_LABEL_TYPES.map(type => ({
+              project_id: parseInt(projectId),
+              key: type.key,
+              name: type.name,
+              color: type.color,
+              hotkey: type.hotkey,
+              description: type.description,
+              created_at: new Date().toISOString()
+            }))
+          )
+          .select()
+
+        if (insertError) {
+          console.error('Error inserting label types:', insertError)
+          return
+        }
+
+        if (insertedTypes) {
+          console.log('Created new label types:', insertedTypes)
+          setDbLabelTypes(insertedTypes)
+        }
+      } catch (error) {
+        console.error('Error initializing label types:', error)
+      }
+    }
+
+    initializeLabelTypes()
+  }, [projectId])
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
@@ -120,37 +174,28 @@ export default function LabelingPage() {
       const text = await file.text()
       
       try {
-        // Log the data we're trying to insert
-        const timestamp = new Date().toISOString()
-        const fileData = {
-          project_id: parseInt(projectId),
-          content: text,
-          file_name: file.name.substring(0, 255), // Ensure it fits in varchar
-          file_type: fileExtension.slice(1).substring(0, 255), // Remove dot and ensure it fits in varchar
-          created_at: timestamp,
-          updated_at: timestamp
-        }
-        console.log('Attempting to insert file with data:', { 
-          ...fileData, 
-          content: `${text.slice(0, 100)}... (truncated)` 
-        })
-
         // Save file to Supabase
         const { data: insertedData, error: fileError } = await supabase
           .from('files')
-          .insert(fileData)
+          .insert({
+            project_id: parseInt(projectId),
+            content: text,
+            file_name: file.name.substring(0, 255),
+            file_type: fileExtension.slice(1).substring(0, 255),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
           .select()
           .single()
 
         if (fileError) {
           console.error('Supabase file insert error:', {
             error: fileError,
-            errorMessage: fileError.message,
-            errorDetails: fileError.details,
-            hint: fileError.hint,
-            code: fileError.code
+            message: fileError.message,
+            details: fileError.details,
+            hint: fileError.hint
           })
-          setError(`Database error: ${fileError.message || 'Unknown error occurred'}`)
+          setError(`Database error: ${fileError.message || 'Unknown error'}`)
           return
         }
 
@@ -159,6 +204,10 @@ export default function LabelingPage() {
           return
         }
 
+        console.log('File uploaded successfully, ID:', insertedData.id)
+        setCurrentFileId(String(insertedData.id))
+        setUploadedText(text)
+        
         // Log user activity
         const { error: activityError } = await supabase
           .from('user_activities')
@@ -173,9 +222,7 @@ export default function LabelingPage() {
           console.error('Activity logging error:', activityError)
         }
 
-        setCurrentFileId(insertedData.id.toString())
-        setUploadedText(text)
-        fetchFiles() // Refresh the files list
+        fetchFiles()
 
       } catch (dbError) {
         console.error('Database operation error:', dbError)
@@ -206,50 +253,59 @@ export default function LabelingPage() {
         throw new Error('Authentication required')
       }
 
-      // Insert label into Supabase
+      const timestamp = new Date().toISOString()
+      
+      // Insert label into Supabase with proper types
       const { data: labelData, error: labelError } = await supabase
         .from('labels')
         .insert({
           file_id: parseInt(currentFileId),
           label_type_id: labelTypeId,
-          start_offset: startOffset,
-          end_offset: endOffset,
-          value: value,
-          created_by: user.id,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          start_offset: startOffset,  // int4
+          end_offset: endOffset,      // int4
+          value: value,               // text
+          created_by: user.id,        // uuid
+          created_at: timestamp,      // timestamptz
+          updated_at: timestamp       // timestamptz
         })
         .select()
         .single()
 
       if (labelError) {
-        throw labelError
+        console.error('Label creation error:', {
+          error: labelError,
+          details: labelError.details,
+          hint: labelError.hint,
+          message: labelError.message
+        })
+        throw new Error(labelError.message || 'Failed to create label')
+      }
+
+      if (!labelData) {
+        throw new Error('No data returned from label creation')
       }
 
       // Log user activity
-      await supabase
+      const { error: activityError } = await supabase
         .from('user_activities')
         .insert({
           project_id: parseInt(projectId),
           user_id: user.id,
           activity_type: 'create_label',
-          created_at: new Date().toISOString()
+          created_at: timestamp
         })
 
-      // Update local labels state through the hook if needed
-      if (createLabel) {
-        await createLabel(
-          String(labelTypeId),
-          startOffset,
-          endOffset,
-          value
-        )
+      if (activityError) {
+        console.error('Activity logging error:', activityError)
       }
+
+      return labelData
     } catch (error) {
       console.error('Error creating label:', error)
-      setError('Failed to create label')
+      setError(error instanceof Error ? error.message : 'Failed to create label')
+      throw error
     }
-  }, [currentFileId, projectId, createLabel])
+  }, [currentFileId, projectId])
 
   const handleSaveLabels = useCallback(async (labels: Label[]) => {
     if (!currentFileId) {
@@ -344,7 +400,7 @@ export default function LabelingPage() {
             <TextLabeler 
               text={uploadedText || currentFile?.content || ''}
               initialLabels={labels}
-              labelTypes={DEFAULT_LABEL_TYPES}
+              labelTypes={dbLabelTypes.length > 0 ? dbLabelTypes : DEFAULT_LABEL_TYPES}
               onCreateLabel={handleCreateLabel}
               onSaveLabels={handleSaveLabels}
             />
