@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useCallback, JSX } from 'react';
+import React, { useState, useEffect, useCallback, useRef, JSX } from 'react';
 import { Search, Settings, ChevronRight, ChevronLeft, Save } from 'lucide-react';
 import { Label, LabelType } from '@/types/project';
 
-// TextLabeler Props interface
 interface TextLabelerProps {
   text: string;
   initialLabels: Label[];
@@ -11,7 +10,6 @@ interface TextLabelerProps {
   onSaveLabels: (labels: Label[]) => Promise<void>;
 }
 
-// Selection state interface
 interface SelectionState {
   text: string;
   start: number;
@@ -29,8 +27,6 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
   const [selectedText, setSelectedText] = useState<SelectionState | null>(null);
   const [selectedEntityType, setSelectedEntityType] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [currentIndex, setCurrentIndex] = useState<number>(1);
-  const [totalItems, setTotalItems] = useState<number>(1);
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
   const [searchOptions, setSearchOptions] = useState({
     searchAllFiles: false,
@@ -38,45 +34,77 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
     exactMatch: false
   });
 
-  // Filter labels based on search query
-  const filteredLabels = labelSearchQuery
-    ? labels.filter(label => {
-        const labelType = labelTypes.find(type => type.id === label.label_type_id);
-        return label.value.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
-               labelType?.name.toLowerCase().includes(labelSearchQuery.toLowerCase());
-      })
-    : labels;
+  const textContainerRef = useRef<HTMLDivElement>(null);
+
+  // Helper function to get text content without HTML elements
+  const getTextWithoutHtml = (element: HTMLElement): string => {
+    return element.innerText || element.textContent || '';
+  };
+
+  // Calculate real offset in original text considering HTML elements
+  const calculateRealOffset = useCallback((node: Node, offset: number): number => {
+    if (!textContainerRef.current) return offset;
+
+    // Get all text nodes and label spans in order
+    const elements = Array.from(textContainerRef.current.children).filter((element): element is HTMLElement => element instanceof HTMLElement);
+    let realOffset = 0;
+    let targetNode = node;
+    
+    // If the node is a text node, find its parent span
+    while (targetNode.parentElement && targetNode.parentElement !== textContainerRef.current) {
+      targetNode = targetNode.parentElement;
+    }
+
+    // Count text length until we reach the target node
+    for (const element of elements) {
+      if (element === targetNode) {
+        // If this is our target element, add the local offset
+        if (node.nodeType === Node.TEXT_NODE) {
+          // For text nodes, just add the offset
+          realOffset += offset;
+        } else {
+          // For element nodes (spans), get the text up to the selection
+          const elementText = getTextWithoutHtml(element);
+          realOffset += Math.min(offset, elementText.length);
+        }
+        break;
+      } else {
+        // Add the length of this element's text content
+        realOffset += getTextWithoutHtml(element).length;
+      }
+    }
+
+    return realOffset;
+  }, []);
 
   // Handle text selection
   const handleTextSelection = useCallback(() => {
     const selection = window.getSelection();
-    if (!selection || selection.isCollapsed) {
+    if (!selection || selection.isCollapsed || !textContainerRef.current) {
       setSelectedText(null);
       return;
     }
 
     const range = selection.getRangeAt(0);
-    const start = range.startOffset;
-    const end = range.endOffset;
-    const selectedText = selection.toString();
+    
+    // Calculate real offsets
+    const startOffset = calculateRealOffset(range.startContainer, range.startOffset);
+    const endOffset = calculateRealOffset(range.endContainer, range.endOffset);
+    
+    // Ensure we're selecting in the right direction
+    const normalizedStart = Math.min(startOffset, endOffset);
+    const normalizedEnd = Math.max(startOffset, endOffset);
+    
+    const selectedContent = text.substring(normalizedStart, normalizedEnd);
 
-    if (selectedText.trim()) {
-      setSelectedText({ text: selectedText, start, end });
+    if (selectedContent.trim()) {
+      setSelectedText({
+        text: selectedContent,
+        start: normalizedStart,
+        end: normalizedEnd
+      });
     }
-  }, []);
-
-  // Handle keyboard shortcuts
-  const handleKeyPress = useCallback((e: KeyboardEvent) => {
-    const labelType = labelTypes.find(type => type.hotkey === e.key);
-    if (labelType && selectedText) {
-      addLabel(labelType.id);
-    }
-  }, [selectedText, labelTypes]);
-
-  useEffect(() => {
-    document.addEventListener('keypress', handleKeyPress);
-    return () => document.removeEventListener('keypress', handleKeyPress);
-  }, [handleKeyPress]);
+  }, [text, calculateRealOffset]);
 
   // Add a new label
   const addLabel = async (labelTypeId: number) => {
@@ -115,7 +143,19 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
     setLabels(prev => prev.filter(label => label.id !== labelId));
   };
 
-  // Render text with highlighted labels
+  // Handle keyboard shortcuts
+  const handleKeyPress = useCallback((e: KeyboardEvent) => {
+    const labelType = labelTypes.find(type => type.hotkey === e.key);
+    if (labelType && selectedText) {
+      addLabel(labelType.id);
+    }
+  }, [selectedText, labelTypes]);
+
+  useEffect(() => {
+    document.addEventListener('keypress', handleKeyPress);
+    return () => document.removeEventListener('keypress', handleKeyPress);
+  }, [handleKeyPress]);
+
   const renderText = () => {
     if (!text) return null;
 
@@ -126,7 +166,7 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
     sortedLabels.forEach((label, index) => {
       if (label.start_offset > lastIndex) {
         elements.push(
-          <span key={`text-${index}`}>
+          <span key={`text-${index}`} className="whitespace-pre-wrap">
             {text.slice(lastIndex, label.start_offset)}
           </span>
         );
@@ -137,7 +177,8 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
         <span
           key={label.id}
           style={{ backgroundColor: labelType?.color + '40' }}
-          className="relative group cursor-pointer rounded px-1"
+          className="relative group cursor-pointer rounded px-1 whitespace-pre-wrap"
+          data-label-id={label.id}
         >
           {text.slice(label.start_offset, label.end_offset)}
           <span className="absolute -top-5 left-0 hidden bg-gray-800 px-2 py-1 text-xs text-white rounded group-hover:block z-10">
@@ -156,7 +197,7 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
 
     if (lastIndex < text.length) {
       elements.push(
-        <span key="text-end">
+        <span key="text-end" className="whitespace-pre-wrap">
           {text.slice(lastIndex)}
         </span>
       );
@@ -201,6 +242,7 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
         {/* Text content */}
         <div className="flex-1 overflow-auto p-6">
           <div
+            ref={textContainerRef}
             className="min-h-[200px] rounded-lg border bg-white p-4 text-gray-800 shadow-sm"
             onMouseUp={handleTextSelection}
           >
@@ -289,6 +331,7 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
               </div>
             </div>
 
+            {/* Keyboard Shortcuts Section */}
             <div className="mt-6">
               <h3 className="mb-2 font-medium text-gray-900">Keyboard Shortcuts</h3>
               <div className="rounded-md bg-gray-50 p-3 text-sm">
