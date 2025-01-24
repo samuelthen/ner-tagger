@@ -1,20 +1,13 @@
 import React, { useState, useEffect, useCallback, JSX } from 'react';
 import { Search, Settings, ChevronRight, ChevronLeft, Save } from 'lucide-react';
-import { Label } from '@/types/project';
-
-// Entity type interface
-interface EntityType {
-  key: string;
-  name: string;
-  color: string;
-  hotkey: string;
-}
+import { Label, LabelType } from '@/types/project';
 
 // TextLabeler Props interface
 interface TextLabelerProps {
   text: string;
   initialLabels: Label[];
-  onCreateLabel: (type: string, start: number, end: number, value: string) => Promise<void>;
+  labelTypes: LabelType[];
+  onCreateLabel: (labelTypeId: number, startOffset: number, endOffset: number, value: string) => Promise<void>;
   onSaveLabels: (labels: Label[]) => Promise<void>;
 }
 
@@ -25,24 +18,16 @@ interface SelectionState {
   end: number;
 }
 
-// Entity types for labels
-const entityTypes: EntityType[] = [
-  { key: 'PER', name: 'Person', color: '#EF4444', hotkey: '1' },
-  { key: 'ORG', name: 'Organization', color: '#3B82F6', hotkey: '2' },
-  { key: 'LOC', name: 'Location', color: '#10B981', hotkey: '3' },
-  { key: 'GEO', name: 'Geopolitical', color: '#F59E0B', hotkey: '4' },
-  { key: 'DAT', name: 'Date', color: '#8B5CF6', hotkey: '5' },
-];
-
 const TextLabeler: React.FC<TextLabelerProps> = ({ 
   text, 
-  initialLabels, 
+  initialLabels,
+  labelTypes, 
   onCreateLabel, 
   onSaveLabels 
 }) => {
   const [labels, setLabels] = useState<Label[]>(initialLabels);
   const [selectedText, setSelectedText] = useState<SelectionState | null>(null);
-  const [selectedEntityType, setSelectedEntityType] = useState<string>('');
+  const [selectedEntityType, setSelectedEntityType] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [currentIndex, setCurrentIndex] = useState<number>(1);
   const [totalItems, setTotalItems] = useState<number>(1);
@@ -55,10 +40,11 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
 
   // Filter labels based on search query
   const filteredLabels = labelSearchQuery
-    ? labels.filter(label => 
-        label.value.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
-        entityTypes.find(type => type.key === label.type)?.name.toLowerCase().includes(labelSearchQuery.toLowerCase())
-      )
+    ? labels.filter(label => {
+        const labelType = labelTypes.find(type => type.id === label.label_type_id);
+        return label.value.toLowerCase().includes(labelSearchQuery.toLowerCase()) ||
+               labelType?.name.toLowerCase().includes(labelSearchQuery.toLowerCase());
+      })
     : labels;
 
   // Handle text selection
@@ -81,11 +67,11 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
 
   // Handle keyboard shortcuts
   const handleKeyPress = useCallback((e: KeyboardEvent) => {
-    const entityType = entityTypes.find(type => type.hotkey === e.key);
-    if (entityType && selectedText) {
-      addLabel(entityType.key);
+    const labelType = labelTypes.find(type => type.hotkey === e.key);
+    if (labelType && selectedText) {
+      addLabel(labelType.id);
     }
-  }, [selectedText]);
+  }, [selectedText, labelTypes]);
 
   useEffect(() => {
     document.addEventListener('keypress', handleKeyPress);
@@ -93,24 +79,25 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
   }, [handleKeyPress]);
 
   // Add a new label
-  const addLabel = async (entityTypeKey: string) => {
+  const addLabel = async (labelTypeId: number) => {
     if (!selectedText) return;
 
     try {
       await onCreateLabel(
-        entityTypeKey,
+        labelTypeId,
         selectedText.start,
         selectedText.end,
         selectedText.text
       );
 
       const newLabel: Label = {
-        id: Date.now().toString(),
+        id: Date.now(), // Temporary ID until DB assigns one
         file_id: 0,
-        type: entityTypeKey,
-        start: selectedText.start,
-        end: selectedText.end,
+        label_type_id: labelTypeId,
+        start_offset: selectedText.start,
+        end_offset: selectedText.end,
         value: selectedText.text,
+        created_by: '', // Should be set by backend
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -124,7 +111,7 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
   };
 
   // Remove a label
-  const removeLabel = (labelId: string) => {
+  const removeLabel = (labelId: number) => {
     setLabels(prev => prev.filter(label => label.id !== labelId));
   };
 
@@ -132,29 +119,29 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
   const renderText = () => {
     if (!text) return null;
 
-    const sortedLabels = [...labels].sort((a, b) => a.start - b.start);
+    const sortedLabels = [...labels].sort((a, b) => a.start_offset - b.start_offset);
     let lastIndex = 0;
     const elements: JSX.Element[] = [];
 
     sortedLabels.forEach((label, index) => {
-      if (label.start > lastIndex) {
+      if (label.start_offset > lastIndex) {
         elements.push(
           <span key={`text-${index}`}>
-            {text.slice(lastIndex, label.start)}
+            {text.slice(lastIndex, label.start_offset)}
           </span>
         );
       }
 
-      const entityType = entityTypes.find(type => type.key === label.type);
+      const labelType = labelTypes.find(type => type.id === label.label_type_id);
       elements.push(
         <span
           key={label.id}
-          style={{ backgroundColor: entityType?.color + '40' }}
+          style={{ backgroundColor: labelType?.color + '40' }}
           className="relative group cursor-pointer rounded px-1"
         >
-          {text.slice(label.start, label.end)}
+          {text.slice(label.start_offset, label.end_offset)}
           <span className="absolute -top-5 left-0 hidden bg-gray-800 px-2 py-1 text-xs text-white rounded group-hover:block z-10">
-            {entityType?.name}
+            {labelType?.name}
             <button 
               onClick={() => removeLabel(label.id)}
               className="ml-2 hover:text-red-300"
@@ -164,7 +151,7 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
           </span>
         </span>
       );
-      lastIndex = label.end;
+      lastIndex = label.end_offset;
     });
 
     if (lastIndex < text.length) {
@@ -235,17 +222,17 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
           <div className="space-y-4">
             <h3 className="font-semibold text-gray-900">Named Entity Recognition</h3>
             <div className="space-y-2">
-              {entityTypes.map((entityType) => (
+              {labelTypes.map((labelType) => (
                 <button
-                  key={entityType.key}
+                  key={labelType.id}
                   onClick={() => {
-                    setSelectedEntityType(entityType.key);
+                    setSelectedEntityType(labelType.id);
                     if (selectedText) {
-                      addLabel(entityType.key);
+                      addLabel(labelType.id);
                     }
                   }}
                   className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
-                    selectedEntityType === entityType.key
+                    selectedEntityType === labelType.id
                       ? 'bg-blue-50 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-50'
                   }`}
@@ -253,11 +240,11 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
                   <div className="flex items-center gap-2">
                     <div
                       className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: entityType.color }}
+                      style={{ backgroundColor: labelType.color }}
                     />
-                    {entityType.name}
+                    {labelType.name}
                   </div>
-                  <span className="text-xs text-gray-500">{entityType.hotkey}</span>
+                  <span className="text-xs text-gray-500">{labelType.hotkey}</span>
                 </button>
               ))}
             </div>

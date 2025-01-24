@@ -4,15 +4,70 @@ import { useState, useCallback } from 'react'
 import MainLayout from '@/components/layout/MainLayout'
 import TextLabeler from '@/components/labeling/TextLabeler'
 import { Upload } from 'lucide-react'
-import { Label } from '@/types/project'
+import { Label, LabelType } from '@/types/project'
 
 // Define supported file types
 const SUPPORTED_EXTENSIONS = ['.txt', '.csv', '.json']
+
+// Default label types (you might want to fetch these from your backend)
+const DEFAULT_LABEL_TYPES: LabelType[] = [
+  { 
+    id: 1, 
+    project_id: 1, 
+    key: 'PER', 
+    name: 'Person', 
+    color: '#EF4444', 
+    hotkey: '1', 
+    description: 'Person entities like names of people',
+    created_at: new Date().toISOString() 
+  },
+  { 
+    id: 2, 
+    project_id: 1, 
+    key: 'ORG', 
+    name: 'Organization', 
+    color: '#3B82F6', 
+    hotkey: '2', 
+    description: 'Organization entities like companies and institutions',
+    created_at: new Date().toISOString() 
+  },
+  { 
+    id: 3, 
+    project_id: 1, 
+    key: 'LOC', 
+    name: 'Location', 
+    color: '#10B981', 
+    hotkey: '3', 
+    description: 'Location entities like cities and countries',
+    created_at: new Date().toISOString() 
+  },
+  { 
+    id: 4, 
+    project_id: 1, 
+    key: 'GEO', 
+    name: 'Geopolitical', 
+    color: '#F59E0B', 
+    hotkey: '4', 
+    description: 'Geopolitical entities like governments and agencies',
+    created_at: new Date().toISOString() 
+  },
+  { 
+    id: 5, 
+    project_id: 1, 
+    key: 'DAT', 
+    name: 'Date', 
+    color: '#8B5CF6', 
+    hotkey: '5', 
+    description: 'Date and time expressions',
+    created_at: new Date().toISOString() 
+  },
+]
 
 export default function LabelingPage() {
   const [currentText, setCurrentText] = useState('')
   const [error, setError] = useState('')
   const [labels, setLabels] = useState<Label[]>([])
+  const [labelTypes] = useState<LabelType[]>(DEFAULT_LABEL_TYPES)
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
@@ -39,20 +94,21 @@ export default function LabelingPage() {
   }
 
   const handleCreateLabel = useCallback(async (
-    type: string,
-    start: number,
-    end: number,
+    labelTypeId: number,
+    startOffset: number,
+    endOffset: number,
     value: string
   ) => {
     try {
       // Create a new label
       const newLabel: Label = {
-        id: Date.now().toString(),
+        id: Date.now(), // Temporary numeric ID
         file_id: 0,
-        type,
-        start,
-        end,
+        label_type_id: labelTypeId,
+        start_offset: startOffset,
+        end_offset: endOffset,
         value,
+        created_by: 'user', // Should be replaced with actual user ID
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       }
@@ -107,6 +163,7 @@ export default function LabelingPage() {
             <TextLabeler
               text={currentText}
               initialLabels={labels}
+              labelTypes={labelTypes}
               onCreateLabel={handleCreateLabel}
               onSaveLabels={handleSaveLabels}
             />
