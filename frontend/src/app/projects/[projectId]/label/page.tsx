@@ -414,7 +414,7 @@ export default function LabelingPage() {
                 disabled={currentFileIndex === 0}
                 className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-5 w-5" color='black'/>
               </button>
               <span className="text-sm text-gray-600">
                 File {currentFileIndex + 1} of {files.length}
@@ -424,7 +424,7 @@ export default function LabelingPage() {
                 disabled={currentFileIndex === files.length - 1}
                 className="rounded p-1 hover:bg-gray-100 disabled:opacity-50"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="h-5 w-5" color='black'/>
               </button>
             </div>
           )}
