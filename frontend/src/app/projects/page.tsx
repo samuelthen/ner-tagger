@@ -41,38 +41,48 @@ export default function ProjectsPage() {
       const transformedProjects = await Promise.all(
         projectsData.map(async (dbProject: Project) => {
           try {
+            // Get total files count for the project
             const { count: totalItems } = await supabase
               .from('files')
               .select('*', { count: 'exact', head: true })
               .eq('project_id', dbProject.id)
               || { count: 0 }
-
+      
+            // First get all file IDs for this project
+            const { data: projectFiles } = await supabase
+              .from('files')
+              .select('id')
+              .eq('project_id', dbProject.id)
+      
+            // Then count labels for those files
             const { count: labeledItems } = await supabase
               .from('labels')
               .select('*', { count: 'exact', head: true })
-              .eq('project_id', dbProject.id)
+              .in('file_id', projectFiles?.map(f => f.id) || [])
               || { count: 0 }
-
+      
+            // Get team members data
             const { data: teamData } = await supabase
               .from('user_activities')
               .select('user_id')
               .eq('project_id', dbProject.id)
               || { data: [] }
-
+      
             const userIds = [...new Set(teamData?.map(t => t.user_id) || [])]
-
+      
             const { data: profilesData } = await supabase
               .from('profiles')
               .select('email')
               .in('id', userIds)
               || { data: [] }
-
+      
             const teamMembers = profilesData?.map(profile => 
               profile.email.split('@')[0]
             ) || []
-
+      
+            // Calculate progress
             const progress = totalItems && labeledItems ? Math.round((labeledItems / totalItems) * 100) : 0
-
+      
             return {
               ...dbProject,
               progress,
