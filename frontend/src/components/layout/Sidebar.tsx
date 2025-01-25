@@ -15,7 +15,6 @@ import {
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Projects', href: '/projects', icon: FileText },
-  { name: 'Labeling', href: '/labeling', icon: Tag },
   { name: 'Datasets', href: '/datasets', icon: Database },
   { name: 'Analytics', href: '/analytics', icon: BarChart2 },
   { name: 'Team', href: '/team', icon: Users },
