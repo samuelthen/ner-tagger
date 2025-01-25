@@ -17,7 +17,6 @@ const navigation = [
   { name: 'Projects', href: '/projects', icon: FileText },
   { name: 'Datasets', href: '/datasets', icon: Database },
   { name: 'Team', href: '/team', icon: Users },
-  { name: 'Settings', href: '/settings', icon: Settings },
 ]
 
 export default function Sidebar() {
