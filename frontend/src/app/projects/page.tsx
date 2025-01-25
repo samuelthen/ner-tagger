@@ -219,12 +219,14 @@ export default function ProjectsPage() {
                     <div>
                       <div className="flex items-center justify-between text-xs text-gray-500">
                         <span>Progress</span>
-                        <span>{project.progress}%</span>
+                        {/* <span>{project.progress}%</span> */}
+                        <span>50%</span>
                       </div>
                       <div className="mt-1 h-2 rounded-full bg-gray-100">
                         <div
                           className="h-2 rounded-full bg-green-600"
-                          style={{ width: `${project.progress}%` }}
+                          // style={{ width: `${project.progress}%` }}
+                          style={{ width: `50%` }}
                         />
                       </div>
                     </div>
@@ -246,9 +248,15 @@ export default function ProjectsPage() {
                         </div>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Items</p>
+                        <p className="text-xs text-gray-500">Labels</p>
                         <p className="mt-1 text-sm font-medium text-gray-900">
-                          {project.labeledItems} / {project.totalItems}
+                          {project.labeledItems}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Files</p>
+                        <p className="mt-1 text-sm font-medium text-gray-900">
+                          {project.totalItems}
                         </p>
                       </div>
                       <div>
