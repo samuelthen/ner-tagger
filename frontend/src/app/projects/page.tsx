@@ -259,12 +259,12 @@ export default function ProjectsPage() {
                           {project.totalItems}
                         </p>
                       </div>
-                      <div>
+                      {/* <div>
                         <p className="text-xs text-gray-500">Updated</p>
                         <p className="mt-1 text-sm font-medium text-gray-900">
                           {new Date(project.updated_at).toLocaleDateString()}
                         </p>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
                 </div>
