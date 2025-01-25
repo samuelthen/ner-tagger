@@ -15,7 +15,7 @@ export default function Navbar() {
         <div className="flex items-center gap-2">
           <Link href="/dashboard" className="flex items-center gap-2">
             {/* Add your logo here */}
-            <span className="text-xl font-bold text-green-600">CrocodAI</span>
+            <span className="text-xl font-bold text-green-600">AI</span>
           </Link>
         </div>
 

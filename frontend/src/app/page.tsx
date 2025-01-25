@@ -18,7 +18,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="text-xl font-bold text-gray-900">
-              CrocodAI
+              AI
             </Link>
             <div className="flex items-center gap-4">
               <Link
