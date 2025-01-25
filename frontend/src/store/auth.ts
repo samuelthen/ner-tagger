@@ -1,7 +1,14 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { supabase } from '@/lib/supabase'
-import type { Profile } from '@/types/profile'
+
+export interface Profile {
+  id: string
+  email: string
+  name: string
+  created_at: string
+  updated_at: string
+}
 
 interface AuthState {
   user: Profile | null
@@ -39,6 +46,8 @@ export const useAuthStore = create<AuthState>()(
               },
             },
           })
+
+          console.log('Auth data after signup:', authData?.user?.user_metadata);
 
           if (authError) {
             console.error('Auth signup error:', authError);
@@ -82,8 +91,11 @@ export const useAuthStore = create<AuthState>()(
         if (error) throw error
 
         if (data.user) {
-          // Get the user's name from auth metadata
-          const userName = data.user.user_metadata?.name || 'User';
+          // More explicitly get the user's name from metadata
+          const userName = data.user.user_metadata?.name;
+          if (!userName) {
+            console.warn('No name found in user metadata:', data.user.user_metadata);
+          }
           
           // Check if profile exists
           const { data: profileData, error: fetchError } = await supabase
@@ -99,7 +111,7 @@ export const useAuthStore = create<AuthState>()(
               .insert({
                 id: data.user.id,
                 email: data.user.email,
-                name: userName,
+                name: userName || 'User', // Only use 'User' if userName is null/undefined
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
               })
