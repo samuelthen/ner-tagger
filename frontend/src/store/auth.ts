@@ -7,6 +7,8 @@ interface AuthState {
   user: Profile | null
   token: string | null
   isAuthenticated: boolean
+  isInitialized: boolean
+  initializeAuth: () => Promise<void>
   login: (email: string, password: string) => Promise<void>
   signup: (email: string, password: string, name: string) => Promise<{ 
     success: boolean;
@@ -14,60 +16,104 @@ interface AuthState {
     requiresConfirmation?: boolean;
   }>
   logout: () => Promise<void>
+  setSession: (session: any) => void
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       isAuthenticated: false,
+      isInitialized: false,
+
+      initializeAuth: async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession()
+          if (session?.user) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single()
+
+            set({
+              user: profile || null,
+              token: session.access_token,
+              isAuthenticated: true,
+              isInitialized: true
+            })
+          } else {
+            set({ 
+              user: null, 
+              token: null, 
+              isAuthenticated: false,
+              isInitialized: true
+            })
+          }
+        } catch (error) {
+          console.error('Error initializing auth:', error)
+          set({ 
+            user: null, 
+            token: null, 
+            isAuthenticated: false,
+            isInitialized: true
+          })
+        }
+      },
+
+      setSession: (session) => {
+        if (session?.user) {
+          set({
+            token: session.access_token,
+            isAuthenticated: true
+          })
+        } else {
+          set({
+            user: null,
+            token: null,
+            isAuthenticated: false
+          })
+        }
+      },
 
       signup: async (email: string, password: string, name: string) => {
         try {
-          console.log('Starting signup with:', { email, name });
+          const trimmedName = name.trim()
           
-          const trimmedName = name.trim();
-          
-          // Only create the auth user with metadata first
           const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
             password,
             options: {
               data: {
-                name: trimmedName // Store name in metadata
+                name: trimmedName
               },
             },
           })
 
-          console.log('Auth data after signup:', authData?.user?.user_metadata);
-
-          if (authError) {
-            console.error('Auth signup error:', authError);
-            return {
-              success: false,
-              message: authError.message
-            }
-          }
+          if (authError) throw authError
 
           if (!authData.user) {
-            return {
-              success: false,
-              message: 'Failed to create user account'
-            }
+            throw new Error('Failed to create user account')
           }
 
-          // Don't create profile yet - it will be created on first login
-          // after email confirmation
+          // Check if email confirmation is required
+          if (authData.session === null) {
+            return {
+              success: true,
+              message: 'Please check your email to confirm your account before signing in.',
+              requiresConfirmation: true
+            }
+          }
 
           return {
             success: true,
-            message: 'Please check your email to confirm your account before signing in.',
-            requiresConfirmation: true
+            message: 'Account created successfully.',
+            requiresConfirmation: false
           }
 
         } catch (error) {
-          console.error('Signup process error:', error);
+          console.error('Signup error:', error)
           return {
             success: false,
             message: error instanceof Error ? error.message : 'An unexpected error occurred'
@@ -76,35 +122,40 @@ export const useAuthStore = create<AuthState>()(
       },
 
       login: async (email: string, password: string) => {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-        
-        if (error) throw error
-
-        if (data.user) {
-          // More explicitly get the user's name from metadata
-          const userName = data.user.user_metadata?.name;
-          if (!userName) {
-            console.warn('No name found in user metadata:', data.user.user_metadata);
-          }
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
+          })
           
-          // Check if profile exists
+          if (error) throw error
+
+          if (!data.user) {
+            throw new Error('No user returned from login')
+          }
+
+          // Check if email is confirmed
+          if (!data.user.email_confirmed_at) {
+            throw new Error('Please confirm your email address before signing in')
+          }
+
+          const userName = data.user.user_metadata?.name
+
+          // Try to get existing profile
           const { data: profileData, error: fetchError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', data.user.id)
             .single()
 
-          if (fetchError && fetchError.code === 'PGRST116') { // Not found
-            // Create profile using auth metadata
+          if (fetchError && fetchError.code === 'PGRST116') {
+            // Create new profile
             const { data: newProfile, error: createError } = await supabase
               .from('profiles')
               .insert({
                 id: data.user.id,
                 email: data.user.email,
-                name: userName || 'User', // Only use 'User' if userName is null/undefined
+                name: userName || 'User',
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
               })
@@ -121,23 +172,35 @@ export const useAuthStore = create<AuthState>()(
           } else if (fetchError) {
             throw fetchError
           } else {
-            // Profile exists, use it
             set({
               user: profileData,
               token: data.session?.access_token || null,
               isAuthenticated: true,
             })
           }
+        } catch (error) {
+          console.error('Login error:', error)
+          throw error
         }
       },
 
       logout: async () => {
-        await supabase.auth.signOut()
-        set({ user: null, token: null, isAuthenticated: false })
+        try {
+          await supabase.auth.signOut()
+          set({ user: null, token: null, isAuthenticated: false })
+        } catch (error) {
+          console.error('Logout error:', error)
+          throw error
+        }
       },
     }),
     {
       name: 'auth-storage',
+      partialize: (state) => ({
+        user: state.user,
+        token: state.token,
+        isAuthenticated: state.isAuthenticated
+      })
     }
   )
 )

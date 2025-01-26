@@ -1,18 +1,37 @@
-// src/app/login/page.tsx
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore } from '@/store/auth'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const login = useAuthStore((state) => state.login)
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const isInitialized = useAuthStore((state) => state.isInitialized)
+  const initializeAuth = useAuthStore((state) => state.initializeAuth)
+  
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  useEffect(() => {
+    // Initialize auth state when component mounts
+    if (!isInitialized) {
+      initializeAuth()
+    }
+  }, [isInitialized, initializeAuth])
+
+  useEffect(() => {
+    // Redirect if already authenticated
+    if (isAuthenticated && isInitialized) {
+      const redirectTo = searchParams.get('redirect') || '/dashboard'
+      router.push(redirectTo)
+    }
+  }, [isAuthenticated, isInitialized, router, searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,12 +40,28 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      router.push('/dashboard')
+      const redirectTo = searchParams.get('redirect') || '/dashboard'
+      router.push(redirectTo)
     } catch (error: any) {
-      setError(error.message || 'Invalid email or password')
+      if (error.message.includes('Invalid login credentials')) {
+        setError('Invalid email or password')
+      } else if (error.message.includes('confirm your email')) {
+        setError('Please confirm your email address before signing in')
+      } else {
+        setError(error.message || 'An error occurred during sign in')
+      }
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Show loading state while checking auth
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    )
   }
 
   return (
