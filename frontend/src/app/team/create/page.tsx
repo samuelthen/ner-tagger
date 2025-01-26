@@ -21,6 +21,7 @@ export default function CreateTeamPage() {
   const [newMemberEmail, setNewMemberEmail] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false)
 
   useEffect(() => {
     if (isInitialized && !isAuthenticated) {
@@ -28,15 +29,70 @@ export default function CreateTeamPage() {
     }
   }, [isInitialized, isAuthenticated, router])
 
-  const addMember = () => {
-    if (!newMemberEmail) return
-    if (members.some(m => m.email === newMemberEmail)) {
-      setError('This email has already been added')
-      return
-    }
-    setMembers([...members, { email: newMemberEmail, role: 'member' }])
-    setNewMemberEmail('')
+  const checkUserExists = async (email: string) => {
+    setIsCheckingEmail(true)
     setError('')
+    
+    try {
+      const { data, error } = await supabaseClient
+        .rpc('check_user_exists', { 
+          p_email: email 
+        })
+
+      if (error) {
+        setError('Error checking email')
+        return false
+      }
+
+      // Explicitly return boolean
+      return Boolean(data)
+
+    } catch (err) {
+      setError('Error checking email')
+      return false
+    } finally {
+      setIsCheckingEmail(false)
+    }
+  }
+
+  const addMember = async () => {
+    if (!newMemberEmail) return
+    
+    // Clear previous states
+    setError('')
+    setIsCheckingEmail(true)
+    
+    try {
+      // Basic validations
+      if (members.some(m => m.email === newMemberEmail)) {
+        setError('This email has already been added')
+        setIsCheckingEmail(false)
+        return
+      }
+
+      if (newMemberEmail === user?.email) {
+        setError('You will automatically be added as an admin')
+        setIsCheckingEmail(false)
+        return
+      }
+
+      // Check if user exists
+      const exists = await checkUserExists(newMemberEmail)
+      
+      if (!exists) {
+        setError('No account found with this email address')
+        return
+      }
+
+      // Only add member if user exists
+      setMembers(prevMembers => [...prevMembers, { email: newMemberEmail, role: 'member' }])
+      setNewMemberEmail('')
+
+    } catch (err) {
+      setError('Error checking email address')
+    } finally {
+      setIsCheckingEmail(false)
+    }
   }
 
   const removeMember = (email: string) => {
@@ -47,29 +103,28 @@ export default function CreateTeamPage() {
     e.preventDefault()
     setError('')
     setIsLoading(true)
-
+  
     try {
       if (!user?.id) {
         throw new Error('Not authenticated')
       }
-
+  
       if (!teamName.trim()) {
         throw new Error('Team name is required')
       }
-
-      // Call the stored procedure with all data at once
+  
       const { data: team, error: createError } = await supabaseClient
-        .rpc('create_team_with_members', { 
+        .rpc('create_team_with_members', {
+          p_invites: members,
           p_team_name: teamName.trim(),
-          p_user_id: user.id,
-          p_invites: members
+          p_user_id: user.id
         })
-
+  
       if (createError) {
         console.error('Team creation error:', createError)
         throw new Error(createError.message)
       }
-
+  
       router.push('/team')
     } catch (err: any) {
       console.error('Error creating team:', err)
@@ -79,10 +134,18 @@ export default function CreateTeamPage() {
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = async (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && newMemberEmail) {
       e.preventDefault()
-      addMember()
+      setIsCheckingEmail(true)
+      try {
+        await addMember()
+      } catch (err) {
+        console.error('Error:', err)
+        setError('Error checking email')
+      } finally {
+        setIsCheckingEmail(false)
+      }
     }
   }
 
@@ -132,15 +195,21 @@ export default function CreateTeamPage() {
                     onKeyPress={handleKeyPress}
                     placeholder="Email address"
                     className="block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
-                    disabled={isLoading}
+                    disabled={isLoading || isCheckingEmail}
                   />
                   <button
                     type="button"
-                    onClick={addMember}
-                    disabled={!newMemberEmail || isLoading}
+                    onClick={() => {
+                      setIsCheckingEmail(true)
+                      addMember().catch(err => {
+                        console.error('Error:', err)
+                        setError('Error checking email')
+                      }).finally(() => setIsCheckingEmail(false))
+                    }}
+                    disabled={!newMemberEmail || isLoading || isCheckingEmail}
                     className="rounded-lg bg-green-600 px-4 py-2 text-white hover:bg-green-700 disabled:opacity-50"
                   >
-                    Add
+                    {isCheckingEmail ? 'Checking...' : 'Add'}
                   </button>
                 </div>
               </div>
