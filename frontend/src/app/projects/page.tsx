@@ -1,103 +1,76 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import MainLayout from '@/components/layout/MainLayout'
 import NewProjectModal from '@/components/projects/NewProjectModal'
 import { Plus, Search, Filter, MoreVertical, FileText, Users, Calendar } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { Project, ProjectWithStats } from '@/types/project'
+import { useAuthStore } from '@/store/auth'
+
+interface Project {
+  id: string;
+  name: string;
+  description: string;
+  team_id: string;
+  created_at: string;
+  teamName: string;
+  teamMembers: string[];
+  totalItems: number;
+}
 
 export default function ProjectsPage() {
+  const router = useRouter()
+  const { isInitialized, isAuthenticated, user } = useAuthStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
-  const [projects, setProjects] = useState<ProjectWithStats[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Authentication check
   useEffect(() => {
-    fetchProjects()
-  }, [])
+    console.log('[Projects] Auth state:', {
+      isInitialized,
+      isAuthenticated,
+      hasUser: !!user
+    })
+
+    if (isInitialized && !isAuthenticated) {
+      console.log('[Projects] No auth, redirecting to login')
+      router.push('/login?redirect=/projects')
+      return
+    }
+  }, [isInitialized, isAuthenticated, user, router])
+
+  // Fetch projects only when authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      fetchProjects()
+    }
+  }, [isAuthenticated, user])
 
   const fetchProjects = async () => {
+    if (!user) return
+    
     try {
       setLoading(true)
       setError(null)
 
-      const { data: projectsData, error: projectsError } = await supabase
-        .from('projects')
-        .select('*')
-        .order('created_at', { ascending: false })
+      const response = await fetch('/api/projects', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
 
-      if (projectsError) {
-        throw new Error(`Failed to fetch projects: ${projectsError.message}`)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
       }
 
-      if (!projectsData) {
-        setProjects([])
-        return
-      }
-
-      const transformedProjects = await Promise.all(
-        projectsData.map(async (dbProject: Project) => {
-          try {
-            // Get total files count for the project
-            const { count: totalItems } = await supabase
-              .from('files')
-              .select('*', { count: 'exact', head: true })
-              .eq('project_id', dbProject.id)
-              || { count: 0 }
-      
-            // First get all file IDs for this project
-            const { data: projectFiles } = await supabase
-              .from('files')
-              .select('id')
-              .eq('project_id', dbProject.id)
-      
-            // Then count labels for those files
-            const { count: labeledItems } = await supabase
-              .from('labels')
-              .select('*', { count: 'exact', head: true })
-              .in('file_id', projectFiles?.map(f => f.id) || [])
-              || { count: 0 }
-      
-            // Get team members data
-            const { data: teamData } = await supabase
-              .from('user_activities')
-              .select('user_id')
-              .eq('project_id', dbProject.id)
-              || { data: [] }
-      
-            const userIds = [...new Set(teamData?.map(t => t.user_id) || [])]
-      
-            const { data: profilesData } = await supabase
-              .from('profiles')
-              .select('email')
-              .in('id', userIds)
-              || { data: [] }
-      
-            const teamMembers = profilesData?.map(profile => 
-              profile.email.split('@')[0]
-            ) || []
-      
-            // Calculate progress
-            const progress = totalItems && labeledItems ? Math.round((labeledItems / totalItems) * 100) : 0
-      
-            return {
-              ...dbProject,
-              progress,
-              teamMembers,
-              totalItems: totalItems || 0,
-              labeledItems: labeledItems || 0
-            }
-          } catch (err: any) {
-            console.error(`Error transforming project ${dbProject.id}:`, err)
-            throw new Error(`Failed to transform project ${dbProject.id}: ${err.message}`)
-          }
-        })
-      )
-
-      setProjects(transformedProjects)
+      const projectsData = await response.json()
+      setProjects(projectsData)
     } catch (error: any) {
       console.error('Error fetching projects:', error)
       setError(error.message || 'An error occurred while fetching projects')
@@ -111,6 +84,17 @@ export default function ProjectsPage() {
     project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     project.description?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  // Show loading state while checking authentication
+  if (!isInitialized || loading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+        </div>
+      </MainLayout>
+    )
+  }
 
   return (
     <MainLayout>
@@ -133,7 +117,6 @@ export default function ProjectsPage() {
         {/* Error Display */}
         {error && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
-            <h3 className="text-lg font-medium">Error</h3>
             <p className="mt-1">{error}</p>
             <button
               onClick={fetchProjects}
@@ -178,18 +161,20 @@ export default function ProjectsPage() {
             </div>
           ) : (
             filteredProjects.map((project) => (
-              <div key={project.id} className="rounded-lg border bg-white shadow-sm flex flex-col h-[360px]">
-                {/* Top content area */}
-                <div className="p-6 flex flex-col h-full">
-                  {/* Header section */}
+              <div key={project.id} className="rounded-lg border bg-white shadow-sm">
+                <div className="p-6">
+                  {/* Project Header */}
                   <div className="flex items-start justify-between">
-                    <div className="flex-1">
+                    <div>
                       <Link 
                         href={`/projects/${project.id}`}
                         className="text-lg font-medium text-gray-900 hover:text-green-600"
                       >
                         {project.name}
                       </Link>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Team: {project.teamName}
+                      </p>
                       <div className="mt-1 h-14 overflow-y-auto">
                         <p className="text-sm text-gray-500">
                           {project.description || "No description provided"}
@@ -201,76 +186,51 @@ export default function ProjectsPage() {
                     </button>
                   </div>
 
-                  {/* Bottom section */}
-                  <div className="mt-auto flex flex-col gap-3">
-                    {/* Status and Type */}
-                    <div className="flex items-center gap-4">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                        ${project.status === 'In Progress' ? 'bg-green-100 text-green-700' : 
-                          project.status === 'Completed' ? 'bg-blue-100 text-blue-700' : 
-                          'bg-gray-100 text-gray-700'}`}
-                      >
-                        {project.status}
+                  {/* Team Members */}
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium text-gray-700">Team Members</h4>
+                      <span className="text-sm text-gray-500">
+                        {project.teamMembers.length} members
                       </span>
-                      <span className="text-xs text-gray-500">{project.type}</span>
                     </div>
-
-                    {/* Progress Bar */}
-                    <div>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
-                        <span>Progress</span>
-                        {/* <span>{project.progress}%</span> */}
-                        <span>50%</span>
-                      </div>
-                      <div className="mt-1 h-2 rounded-full bg-gray-100">
+                    <div className="mt-2 flex -space-x-2">
+                      {project.teamMembers.slice(0, 5).map((member, index) => (
                         <div
-                          className="h-2 rounded-full bg-green-600"
-                          // style={{ width: `${project.progress}%` }}
-                          style={{ width: `50%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Project Stats */}
-                    <div className="grid grid-cols-3 gap-4 border-t pt-3">
-                      <div>
-                        <p className="text-xs text-gray-500">Team</p>
-                        <div className="mt-1 flex -space-x-2">
-                          {project.teamMembers.map((member, index) => (
-                            <div
-                              key={index}
-                              className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-200 text-xs font-medium"
-                              title={member}
-                            >
-                              {member.charAt(0)}
-                            </div>
-                          ))}
+                          key={index}
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-200 text-sm font-medium"
+                          title={member}
+                        >
+                          {member.charAt(0).toUpperCase()}
                         </div>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Labels</p>
-                        <p className="mt-1 text-sm font-medium text-gray-900">
-                          {project.labeledItems}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Files</p>
-                        <p className="mt-1 text-sm font-medium text-gray-900">
-                          {project.totalItems}
-                        </p>
-                      </div>
-                      {/* <div>
-                        <p className="text-xs text-gray-500">Updated</p>
-                        <p className="mt-1 text-sm font-medium text-gray-900">
-                          {new Date(project.updated_at).toLocaleDateString()}
-                        </p>
-                      </div> */}
+                      ))}
+                      {project.teamMembers.length > 5 && (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-sm text-gray-600">
+                          +{project.teamMembers.length - 5}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="mt-6 grid grid-cols-2 gap-4 border-t pt-3">
+                    <div>
+                      <p className="text-xs text-gray-500">Files</p>
+                      <p className="mt-1 text-sm font-medium text-gray-900">
+                        {project.totalItems}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Created</p>
+                      <p className="mt-1 text-sm font-medium text-gray-900">
+                        {new Date(project.created_at).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 {/* Action Buttons */}
-                <div className="px-6 pb-4">
+                <div className="border-t px-6 py-4">
                   <div className="flex gap-2">
                     <Link
                       href={`/projects/${project.id}/label`}
