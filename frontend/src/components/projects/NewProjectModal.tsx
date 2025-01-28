@@ -1,14 +1,35 @@
-// src/components/projects/NewProjectModal.tsx
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
+interface Team {
+  id: string;
+  name: string;
+  created_at: string;
+  created_by: string;
+}
+
+interface TeamMember {
+  id: string;
+  team_id: string;
+  user_id: string;
+  role: string;
+  teams: Team;
+}
+
+interface TeamResponse {
+  id: string;
+  team_id: string;
+  role: string;
+  teams: Team;  // Using the Team interface we already defined
+}
+
 interface NewProjectModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onProjectCreated?: () => void
+  isOpen: boolean;
+  onClose: () => void;
+  onProjectCreated?: () => void;
 }
 
 export default function NewProjectModal({ 
@@ -18,11 +39,75 @@ export default function NewProjectModal({
 }: NewProjectModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [teams, setTeams] = useState<Team[]>([])
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    type: 'NER'
+    type: 'NER',
+    team_id: ''
   })
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchUserTeams()
+    }
+  }, [isOpen])
+
+  const fetchUserTeams = async () => {
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      
+      if (userError) throw userError
+      if (!user) throw new Error('No user found')
+
+      const { data: teamMembers, error: teamsError } = await supabase
+        .from('team_members')
+        .select(`
+          id,
+          team_id,
+          role,
+          teams (
+            id,
+            name,
+            created_at,
+            created_by
+          )
+        `)
+        .eq('user_id', user.id)
+
+      console.log('Raw team members data:', teamMembers) // Debug log
+
+      if (teamsError) throw teamsError
+
+      if (!teamMembers) {
+        console.log('No team members found') // Debug log
+        setTeams([])
+        return
+      }
+
+      // Transform the response data into the correct structure
+      const userTeams = (teamMembers as unknown as TeamResponse[])
+        .filter(member => member.teams != null) // Filter out any null teams
+        .map(member => ({
+          id: member.teams.id,
+          name: member.teams.name,
+          created_at: member.teams.created_at,
+          created_by: member.teams.created_by
+        }))
+
+      console.log('Transformed teams data:', userTeams) // Debug log
+
+      setTeams(userTeams)
+      
+      // Set default team if available
+      if (userTeams.length > 0) {
+        setFormData(prev => ({ ...prev, team_id: userTeams[0].id }))
+      }
+    } catch (error) {
+      console.error('Error fetching teams:', error)
+      setError('Failed to load teams')
+    }
+  }
 
   if (!isOpen) return null
 
@@ -30,7 +115,8 @@ export default function NewProjectModal({
     setFormData({
       name: '',
       description: '',
-      type: 'NER'
+      type: 'NER',
+      team_id: teams.length > 0 ? teams[0].id : ''
     })
     setError(null)
   }
@@ -42,7 +128,6 @@ export default function NewProjectModal({
     try {
       setLoading(true)
 
-      // Get the current user's ID
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       
       if (userError) {
@@ -53,13 +138,23 @@ export default function NewProjectModal({
         throw new Error('You must be logged in to create a project')
       }
 
-      console.log('Creating project with data:', {
-        ...formData,
-        created_by: user.id,
-        status: 'Created'
-      })
+      if (!formData.team_id) {
+        throw new Error('Please select a team for the project')
+      }
 
-      // Insert new project
+      // Verify user is a member of the selected team
+      const { data: teamMember, error: memberError } = await supabase
+        .from('team_members')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('team_id', formData.team_id)
+        .single()
+
+      if (memberError || !teamMember) {
+        throw new Error('You are not a member of the selected team')
+      }
+
+      // Create the project
       const { data: project, error: projectError } = await supabase
         .from('projects')
         .insert([{
@@ -67,7 +162,11 @@ export default function NewProjectModal({
           description: formData.description,
           type: formData.type,
           status: 'Created',
-          created_by: user.id
+          progress: 0,
+          created_by: user.id,
+          team_id: formData.team_id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }])
         .select()
         .single()
@@ -81,23 +180,6 @@ export default function NewProjectModal({
         throw new Error('Failed to create project: No data returned')
       }
 
-      console.log('Project created successfully:', project)
-
-      // Add creator to user_activities
-      const { error: activityError } = await supabase
-        .from('user_activities')
-        .insert([{
-          project_id: project.id,
-          user_id: user.id,
-          activity_type: 'creator'
-        }])
-
-      if (activityError) {
-        console.error('Error adding user activity:', activityError)
-        // Don't throw here, as the project was created successfully
-      }
-
-      // Reset form and close modal
       resetForm()
       onProjectCreated?.()
       onClose()
@@ -130,7 +212,7 @@ export default function NewProjectModal({
 
         <h2 className="text-xl font-semibold text-gray-900">Create New Project</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Create a new labeling project. You can add team members and data files later.
+          Create a new labeling project. You can add data files later.
         </p>
 
         {error && (
@@ -140,6 +222,31 @@ export default function NewProjectModal({
         )}
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-6 text-black">
+          <div>
+            <label htmlFor="team" className="block text-sm font-medium text-gray-700">
+              Team
+            </label>
+            <select
+              id="team"
+              value={formData.team_id}
+              onChange={(e) => setFormData(prev => ({ ...prev, team_id: e.target.value }))}
+              disabled={loading || teams.length === 0}
+              required
+              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm 
+                        focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500"
+            >
+              {teams.length === 0 ? (
+                <option value="">No teams available</option>
+              ) : (
+                teams.map((team) => (
+                  <option key={team.id} value={team.id}>
+                    {team.name}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700">
               Project Name
@@ -203,7 +310,7 @@ export default function NewProjectModal({
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || teams.length === 0}
               className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white 
                        hover:bg-green-700 disabled:bg-green-300"
             >
