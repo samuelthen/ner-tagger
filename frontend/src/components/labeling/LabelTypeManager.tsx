@@ -178,7 +178,7 @@ const LabelTypeManager: React.FC<LabelTypeManagerProps> = ({
 
 
   return (
-    <div className="space-y-4 p-4 bg-white rounded-lg">
+    <div className="space-y-4 p-4 bg-white text-black rounded-lg">
       {error && (
         <div className="flex items-center gap-2 p-3 text-red-800 bg-red-100 rounded-md mb-4">
           <AlertCircle className="h-4 w-4" />
