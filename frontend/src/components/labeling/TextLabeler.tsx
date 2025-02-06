@@ -1,6 +1,9 @@
+'use client'
+
 import React, { useState, useEffect, useCallback, useRef, JSX } from 'react';
-import { Search, Settings, ChevronRight, ChevronLeft, Save } from 'lucide-react';
+import { Search, Settings, Save, X } from 'lucide-react';
 import { Label, LabelType } from '@/types/project';
+import LabelTypeManager from '@/components/labeling/LabelTypeManager';
 
 interface TextLabelerProps {
   text: string;
@@ -8,6 +11,8 @@ interface TextLabelerProps {
   labelTypes: LabelType[];
   onCreateLabel: (labelTypeId: number, startOffset: number, endOffset: number, value: string) => Promise<void>;
   onSaveLabels: (labels: Label[]) => Promise<void>;
+  projectId: string;
+  onLabelTypesUpdate: (types: LabelType[]) => void;
 }
 
 interface SelectionState {
@@ -21,13 +26,17 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
   initialLabels,
   labelTypes, 
   onCreateLabel, 
-  onSaveLabels 
+  onSaveLabels,
+  projectId,
+  onLabelTypesUpdate
 }) => {
+  // State management
   const [labels, setLabels] = useState<Label[]>(initialLabels);
   const [selectedText, setSelectedText] = useState<SelectionState | null>(null);
   const [selectedEntityType, setSelectedEntityType] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
+  const [showLabelManager, setShowLabelManager] = useState(false);
   const [searchOptions, setSearchOptions] = useState({
     searchAllFiles: false,
     regexSearch: false,
@@ -35,6 +44,10 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
   });
 
   const textContainerRef = useRef<HTMLDivElement>(null);
+  const numericProjectId = parseInt(projectId, 10);
+
+  // Filter for unique label types
+  const uniqueLabelTypes = Array.from(new Map(labelTypes.map(type => [type.key, type])).values());
 
   // Helper function to get text content without HTML elements
   const getTextWithoutHtml = (element: HTMLElement): string => {
@@ -45,31 +58,25 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
   const calculateRealOffset = useCallback((node: Node, offset: number): number => {
     if (!textContainerRef.current) return offset;
 
-    // Get all text nodes and label spans in order
-    const elements = Array.from(textContainerRef.current.children).filter((element): element is HTMLElement => element instanceof HTMLElement);
+    const elements = Array.from(textContainerRef.current.children)
+      .filter((element): element is HTMLElement => element instanceof HTMLElement);
     let realOffset = 0;
     let targetNode = node;
     
-    // If the node is a text node, find its parent span
     while (targetNode.parentElement && targetNode.parentElement !== textContainerRef.current) {
       targetNode = targetNode.parentElement;
     }
 
-    // Count text length until we reach the target node
     for (const element of elements) {
       if (element === targetNode) {
-        // If this is our target element, add the local offset
         if (node.nodeType === Node.TEXT_NODE) {
-          // For text nodes, just add the offset
           realOffset += offset;
         } else {
-          // For element nodes (spans), get the text up to the selection
           const elementText = getTextWithoutHtml(element);
           realOffset += Math.min(offset, elementText.length);
         }
         break;
       } else {
-        // Add the length of this element's text content
         realOffset += getTextWithoutHtml(element).length;
       }
     }
@@ -86,15 +93,11 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
     }
 
     const range = selection.getRangeAt(0);
-    
-    // Calculate real offsets
     const startOffset = calculateRealOffset(range.startContainer, range.startOffset);
     const endOffset = calculateRealOffset(range.endContainer, range.endOffset);
     
-    // Ensure we're selecting in the right direction
     const normalizedStart = Math.min(startOffset, endOffset);
     const normalizedEnd = Math.max(startOffset, endOffset);
-    
     const selectedContent = text.substring(normalizedStart, normalizedEnd);
 
     if (selectedContent.trim()) {
@@ -106,10 +109,18 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
     }
   }, [text, calculateRealOffset]);
 
-  // Add a new label
   const addLabel = async (labelTypeId: number) => {
     if (!selectedText) return;
-
+  
+    // Validate that the label type exists
+    const labelTypeExists = labelTypes.some(type => type.id === labelTypeId);
+    if (!labelTypeExists) {
+      console.error(`Label type with id ${labelTypeId} does not exist`);
+      // Optionally show an error message to the user
+      // You could add a state for error messages and display them in the UI
+      return;
+    }
+  
     try {
       await onCreateLabel(
         labelTypeId,
@@ -117,45 +128,48 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
         selectedText.end,
         selectedText.text
       );
-
+  
       const newLabel: Label = {
-        id: Date.now(), // Temporary ID until DB assigns one
+        id: Date.now(), // Note: This should be replaced with the actual ID from the server
         file_id: 0,
         label_type_id: labelTypeId,
         start_offset: selectedText.start,
         end_offset: selectedText.end,
         value: selectedText.text,
-        created_by: '', // Should be set by backend
+        created_by: '', // This should be set by the server
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-
+  
       setLabels(prev => [...prev, newLabel]);
       setSelectedText(null);
       window.getSelection()?.removeAllRanges();
     } catch (error) {
       console.error('Error adding label:', error);
+      // Optionally show an error message to the user
     }
   };
+  
+  // Also update the handleKeyPress function to include validation:
+  const handleKeyPress = useCallback((e: KeyboardEvent) => {
+    const labelType = labelTypes.find(type => type.hotkey === e.key);
+    if (labelType && selectedText) {
+      addLabel(labelType.id);
+    }
+  }, [selectedText, labelTypes, addLabel]);
 
   // Remove a label
   const removeLabel = (labelId: number) => {
     setLabels(prev => prev.filter(label => label.id !== labelId));
   };
 
-  // Handle keyboard shortcuts
-  const handleKeyPress = useCallback((e: KeyboardEvent) => {
-    const labelType = labelTypes.find(type => type.hotkey === e.key);
-    if (labelType && selectedText) {
-      addLabel(labelType.id);
-    }
-  }, [selectedText, labelTypes]);
 
   useEffect(() => {
     document.addEventListener('keypress', handleKeyPress);
     return () => document.removeEventListener('keypress', handleKeyPress);
   }, [handleKeyPress]);
 
+  // Render text with labels
   const renderText = () => {
     if (!text) return null;
 
@@ -207,7 +221,7 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Top toolbar */}
       <div className="flex items-center justify-between border-b bg-white px-4 py-2">
         <div className="flex items-center gap-4">
@@ -218,27 +232,22 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search in text..."
-              className="w-64 border-none text-sm focus:outline-none"
+              className="w-64 text-sm focus:outline-none"
             />
           </div>
         </div>
-
-        <div className="flex items-center gap-4">
-          <button className="rounded-md p-1.5 hover:bg-gray-100">
-            <Settings className="h-5 w-5 text-gray-600" />
-          </button>
-          <button 
-            onClick={() => onSaveLabels(labels)}
-            className="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
-          >
-            <Save className="h-4 w-4" />
-            Save Labels
-          </button>
-        </div>
+  
+        <button 
+          onClick={() => onSaveLabels(labels)}
+          className="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+        >
+          <Save className="h-4 w-4" />
+          Save Labels
+        </button>
       </div>
-
-      {/* Main content */}
-      <div className="flex flex-1">
+  
+      {/* Main content area */}
+      <div className="flex flex-1 overflow-hidden">
         {/* Text content */}
         <div className="flex-1 overflow-auto p-6">
           <div
@@ -249,100 +258,179 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
             {renderText()}
           </div>
         </div>
-
-        {/* Labels sidebar */}
-        <div className="w-64 border-l bg-white p-4">
-          <div className="space-y-4">
-            <h3 className="font-semibold text-gray-900">Named Entity Recognition</h3>
-            <div className="space-y-2">
-              {labelTypes.map((labelType) => (
-                <button
-                  key={labelType.id}
-                  onClick={() => {
-                    setSelectedEntityType(labelType.id);
-                    if (selectedText) {
-                      addLabel(labelType.id);
-                    }
-                  }}
-                  className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
-                    selectedEntityType === labelType.id
-                      ? 'bg-blue-50 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: labelType.color }}
-                    />
-                    {labelType.name}
+  
+        {/* Right sidebar */}
+        <div className="w-80 flex-shrink-0 border-l bg-white overflow-hidden flex flex-col">
+          {showLabelManager ? (
+            <LabelTypeManager
+              labelTypes={uniqueLabelTypes}
+              projectId={numericProjectId}
+              onUpdate={async (updatedTypes) => {
+                await onLabelTypesUpdate(updatedTypes);
+                setShowLabelManager(false);
+              }}
+            />
+          ) : (
+            <>
+              {/* Header */}
+              <div className="border-b p-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-900">Labels</h3>
+                  <button
+                    onClick={() => setShowLabelManager(true)}
+                    className="p-1.5 rounded-md hover:bg-gray-100 text-gray-600"
+                  >
+                    <Settings className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+  
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-4 space-y-6">
+                  {/* Label type buttons */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Label Types</h4>
+                    {uniqueLabelTypes.map((labelType) => (
+                      <button
+                        key={labelType.id}
+                        onClick={() => {
+                          setSelectedEntityType(labelType.id);
+                          if (selectedText) {
+                            addLabel(labelType.id);
+                          }
+                        }}
+                        className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
+                          selectedEntityType === labelType.id
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: labelType.color }}
+                          />
+                          {labelType.name}
+                        </div>
+                        <kbd className="px-2 py-0.5 bg-gray-100 text-xs rounded">
+                          {labelType.hotkey}
+                        </kbd>
+                      </button>
+                    ))}
                   </div>
-                  <span className="text-xs text-gray-500">{labelType.hotkey}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Label Search Section */}
-            <div className="space-y-2 pt-4">
-              <h3 className="font-semibold text-gray-900">Search Labels</h3>
-              <div className="flex items-center gap-2 rounded-md border px-2 py-1.5">
-                <Search className="h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={labelSearchQuery}
-                  onChange={(e) => setLabelSearchQuery(e.target.value)}
-                  placeholder="Search labels..."
-                  className="w-full text-sm focus:outline-none"
-                />
+  
+                  {/* Search section */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-700">Search Labels</h4>
+                    <div className="flex items-center gap-2 rounded-md border px-2 py-1.5">
+                      <Search className="h-4 w-4 text-gray-400" />
+                      <input
+                        type="text"
+                        value={labelSearchQuery}
+                        onChange={(e) => setLabelSearchQuery(e.target.value)}
+                        placeholder="Search labels..."
+                        className="w-full text-sm focus:outline-none"
+                      />
+                    </div>
+                  </div>
+  
+                  {/* Search options */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-700">Search Options</h4>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={searchOptions.searchAllFiles}
+                          onChange={(e) => setSearchOptions(prev => ({
+                            ...prev,
+                            searchAllFiles: e.target.checked
+                          }))}
+                          className="rounded text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">Search all files</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={searchOptions.regexSearch}
+                          onChange={(e) => setSearchOptions(prev => ({
+                            ...prev,
+                            regexSearch: e.target.checked
+                          }))}
+                          className="rounded text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">Regex search</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={searchOptions.exactMatch}
+                          onChange={(e) => setSearchOptions(prev => ({
+                            ...prev,
+                            exactMatch: e.target.checked
+                          }))}
+                          className="rounded text-blue-600"
+                        />
+                        <span className="text-sm text-gray-700">Exact match</span>
+                      </label>
+                    </div>
+                  </div>
+  
+                  {/* Keyboard shortcuts */}
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium text-gray-700">Keyboard Shortcuts</h4>
+                    <div className="rounded-md bg-gray-50 p-3 text-sm">
+                      <p className="text-gray-500">
+                        Select text and press the corresponding hotkey to apply labels:
+                      </p>
+                      <div className="mt-2 space-y-1">
+                        {uniqueLabelTypes.map((type) => (
+                          <div key={type.id} className="flex items-center justify-between">
+                            <span className="text-gray-700">{type.name}</span>
+                            <kbd className="px-2 py-0.5 bg-gray-200 rounded text-xs">
+                              {type.hotkey}
+                            </kbd>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
+            </>
+          )}
+        </div>
+      </div>
+  
+      {/* Modal for label type manager */}
+      {showLabelManager && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg max-w-lg w-full mx-4">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h3 className="text-lg font-medium">Manage Label Types</h3>
+              <button 
+                onClick={() => setShowLabelManager(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-
-            {/* Search Options Section */}
-            <div className="space-y-2 pt-4">
-              <h3 className="font-semibold text-gray-900">Search Options</h3>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={searchOptions.searchAllFiles}
-                    onChange={(e) => setSearchOptions(prev => ({ ...prev, searchAllFiles: e.target.checked }))}
-                    className="rounded text-blue-600"
-                  />
-                  <span className="text-sm text-gray-700">Search all files</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={searchOptions.regexSearch}
-                    onChange={(e) => setSearchOptions(prev => ({ ...prev, regexSearch: e.target.checked }))}
-                    className="rounded text-blue-600"
-                  />
-                  <span className="text-sm text-gray-700">Regex search</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={searchOptions.exactMatch}
-                    onChange={(e) => setSearchOptions(prev => ({ ...prev, exactMatch: e.target.checked }))}
-                    className="rounded text-blue-600"
-                  />
-                  <span className="text-sm text-gray-700">Exact match</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Keyboard Shortcuts Section */}
-            <div className="mt-6">
-              <h3 className="mb-2 font-medium text-gray-900">Keyboard Shortcuts</h3>
-              <div className="rounded-md bg-gray-50 p-3 text-sm">
-                <p className="text-gray-500">Select text and press the number key to apply the corresponding label.</p>
-              </div>
+            <div className="p-4">
+              <LabelTypeManager
+                labelTypes={uniqueLabelTypes}
+                projectId={numericProjectId}
+                onUpdate={async (updatedTypes) => {
+                  await onLabelTypesUpdate(updatedTypes);
+                  setShowLabelManager(false);
+                }}
+              />
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
-  );
-};
+  )};
 
-export default TextLabeler;
+  export default TextLabeler;
