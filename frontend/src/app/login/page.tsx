@@ -6,25 +6,6 @@ import Link from 'next/link'
 import { useAuthStore } from '@/store/auth'
 import { supabase } from '@/lib/supabase'
 
-interface DebugState {
-  componentState: string
-  lastAction: string | null
-  authStatus: {
-    isInitialized?: boolean
-    isAuthenticated?: boolean
-    hasSession?: boolean
-  } | null
-  error: string | null
-}
-
-const DebugPanel = ({ state }: { state: any }) => (
-  <div className="fixed bottom-4 right-4 max-w-md rounded-lg bg-black bg-opacity-80 p-4 text-xs text-white">
-    <pre className="overflow-auto">
-      {JSON.stringify(state, null, 2)}
-    </pre>
-  </div>
-)
-
 export default function LoginPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -38,46 +19,18 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
-  const [debugState, setDebugState] = useState<DebugState>({
-    componentState: 'initializing',
-    lastAction: null,
-    authStatus: null,
-    error: null
-  })
 
   // Initialize auth and check session on mount
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        console.log('[Login] Checking initial auth state')
-        
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        console.log('[Login] Current session:', { 
-          hasSession: !!session, 
-          error: sessionError?.message 
-        })
+        const { data: { session } } = await supabase.auth.getSession()
 
         if (!isInitialized) {
-          console.log('[Login] Initializing auth store')
           await initializeAuth()
         }
-
-        setDebugState(prev => ({
-          ...prev,
-          componentState: 'initialized',
-          authStatus: {
-            isInitialized,
-            isAuthenticated,
-            hasSession: !!session
-          }
-        }))
       } catch (error) {
         console.error('[Login] Auth check error:', error)
-        setDebugState(prev => ({
-          ...prev,
-          componentState: 'error',
-          error: error instanceof Error ? error.message : 'Unknown error'
-        }))
       }
     }
 
@@ -86,55 +39,22 @@ export default function LoginPage() {
 
   // Handle auth state changes
   useEffect(() => {
-    console.log('[Login] Auth state changed:', { 
-      isInitialized, 
-      isAuthenticated 
-    })
-
     if (isAuthenticated && isInitialized) {
       const redirectTo = searchParams.get('redirect') || '/dashboard'
-      console.log('[Login] Redirecting to:', redirectTo)
       router.push(redirectTo)
     }
-
-    setDebugState(prev => ({
-      ...prev,
-      authStatus: {
-        isInitialized,
-        isAuthenticated
-      }
-    }))
   }, [isAuthenticated, isInitialized, router, searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
     setIsLoading(true)
-    console.log('[Login] Attempting login:', { email })
-
-    setDebugState(prev => ({
-      ...prev,
-      lastAction: 'login_attempt',
-      componentState: 'logging_in'
-    }))
 
     try {
-      console.log('[Login] Calling login function')
       await login(email, password)
-      
       const redirectTo = searchParams.get('redirect') || '/dashboard'
-      console.log('[Login] Login successful, redirecting to:', redirectTo)
-      
-      setDebugState(prev => ({
-        ...prev,
-        lastAction: 'login_success',
-        componentState: 'redirecting'
-      }))
-
       router.push(redirectTo)
     } catch (error: any) {
-      console.error('[Login] Login error:', error)
-      
       let errorMessage = error.message || 'An error occurred during sign in'
       if (error.message.includes('Invalid login credentials')) {
         errorMessage = 'Invalid email or password'
@@ -143,12 +63,6 @@ export default function LoginPage() {
       }
 
       setError(errorMessage)
-      setDebugState(prev => ({
-        ...prev,
-        lastAction: 'login_error',
-        componentState: 'error',
-        error: errorMessage
-      }))
     } finally {
       setIsLoading(false)
     }
@@ -218,21 +132,11 @@ export default function LoginPage() {
     </form>
   )
 
-  // Debug current state
-  const currentState = {
-    isInitialized,
-    isAuthenticated,
-    isLoading,
-    error,
-    debug: debugState
-  }
-
   // Show loading state while checking auth
   if (!isInitialized) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-gray-500">Loading...</div>
-        <DebugPanel state={currentState} />
       </div>
     )
   }
@@ -248,35 +152,32 @@ export default function LoginPage() {
       </nav>
 
       <div className="flex min-h-[calc(100vh-64px)] items-center justify-center px-4">
-        <div className="w-full max-w-md">
-          <div className="rounded-xl bg-white px-8 pb-8 pt-6 shadow-sm">
-            <div className="mb-8 text-center">
-              <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
-              <p className="mt-2 text-gray-600">Sign in to your account</p>
-            </div>
-            
-            {error && (
-              <div className="mb-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-
-            {renderForm()}
-
-            <p className="mt-6 text-center text-sm text-gray-600">
-              Don't have an account?{' '}
-              <Link
-                href="/signup"
-                className="font-medium text-green-600 hover:text-green-500"
-              >
-                Sign up for free
+        <div className="w-full max-w-md space-y-8">
+          <div>
+            <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+              Sign in to your account
+            </h2>
+            <p className="mt-2 text-center text-sm text-gray-600">
+              Or{' '}
+              <Link href="/signup" className="font-medium text-green-600 hover:text-green-500">
+                create a new account
               </Link>
             </p>
           </div>
+
+          {error && (
+            <div className="rounded-md bg-red-50 p-4">
+              <div className="flex">
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">{error}</h3>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {renderForm()}
         </div>
       </div>
-      
-      <DebugPanel state={currentState} />
     </div>
   )
 }
