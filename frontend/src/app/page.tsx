@@ -18,7 +18,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="text-xl font-bold text-gray-900">
-              AI
+              NERTagger
             </Link>
             <div className="flex items-center gap-4">
               <Link
@@ -42,11 +42,11 @@ export default function HomePage() {
       <div className="flex min-h-[calc(100vh-72px)] flex-col items-center justify-center px-4">
         <div className="mx-auto max-w-3xl text-center">
           <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl md:text-6xl">
-            Data Labeling Made{' '}
+            NER Labeling Made{' '}
             <span className="text-green-600">Simple</span>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-lg text-gray-600">
-            A powerful platform for efficient data labeling and annotation. 
+            A lightweight platform for efficient NER labeling and annotation. 
             Build better AI models with high-quality training data.
           </p>
           <div className="mt-10 flex items-center justify-center gap-4">

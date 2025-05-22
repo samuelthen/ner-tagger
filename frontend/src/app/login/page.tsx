@@ -146,7 +146,7 @@ export default function LoginPage() {
       <nav className="px-4 py-3">
         <div className="mx-auto max-w-7xl">
           <Link href="/" className="text-xl font-bold text-gray-900">
-            AI
+            NERTagger
           </Link>
         </div>
       </nav>

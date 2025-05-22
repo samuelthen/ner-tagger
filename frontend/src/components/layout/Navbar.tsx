@@ -15,14 +15,14 @@ export default function Navbar() {
         <div className="flex items-center gap-2">
           <Link href="/dashboard" className="flex items-center gap-2">
             {/* Add your logo here */}
-            <span className="text-xl font-bold text-green-600">InceptoAI</span>
+            <span className="text-xl font-bold text-green-600">NERTagger</span>
           </Link>
         </div>
 
         <div className="flex items-center gap-4">
-          <button className="rounded-full p-2 hover:bg-gray-100">
+          {/* <button className="rounded-full p-2 hover:bg-gray-100">
             <Bell className="h-5 w-5 text-gray-600" />
-          </button>
+          </button> */}
           
           <div className="relative">
             <button
@@ -39,7 +39,7 @@ export default function Navbar() {
 
             {isProfileOpen && (
               <div className="absolute right-0 mt-2 w-48 rounded-md border bg-white py-1 shadow-lg">
-                <Link
+                {/* <Link
                   href="/profile"
                   className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
@@ -50,7 +50,7 @@ export default function Navbar() {
                   className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
                   Settings
-                </Link>
+                </Link> */}
                 <button
                   onClick={() => {
                     logout()
