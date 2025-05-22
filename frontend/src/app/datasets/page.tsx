@@ -92,6 +92,13 @@ export default function DatasetsPage() {
 
   return (
     <MainLayout>
+      <div className="relative">
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white bg-opacity-70 backdrop-blur-sm">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900">Under Construction</h1>
+            <p className="mt-2 text-gray-600">We're working hard to bring this dashboard to life. Stay tuned!</p>
+          </div>
+        </div>
       <div className="space-y-6 p-6">
         {/* Header */}
         <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
@@ -218,6 +225,7 @@ export default function DatasetsPage() {
           ))}
         </div>
       </div>
+      </div>  
     </MainLayout>
   )
 }

@@ -41,130 +41,135 @@ export default function DashboardPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Analytics Dashboard</h1>
-            <p className="mt-1 text-sm text-gray-500">Track your team's labeling performance and productivity</p>
-          </div>
-          
-          <div className="flex items-center gap-4">
-            <button className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50">
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </button>
-            <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 shadow-sm">
-              <Calendar className="h-4 w-4 text-gray-500" />
-              <select 
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value)}
-                className="text-sm font-medium text-gray-600 focus:outline-none"
-              >
-                <option>This Week</option>
-                <option>This Month</option>
-                <option>This Quarter</option>
-                <option>This Year</option>
-              </select>
-            </div>
+      <div className="relative">
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white bg-opacity-70 backdrop-blur-sm">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900">Under Construction</h1>
+            <p className="mt-2 text-gray-600">We're working hard to bring this dashboard to life. Stay tuned!</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* Labeling Progress Overview */}
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold text-gray-900">Labeling Progress</h2>
-                <p className="text-sm text-gray-500">Total items: 1,000</p>
-              </div>
-              <button className="rounded-lg p-2 hover:bg-gray-50">
-                <Download className="h-5 w-5 text-gray-400" />
+        <div className="space-y-6 opacity-50 pointer-events-none">
+          <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">Analytics Dashboard</h1>
+              <p className="mt-1 text-sm text-gray-500">Track your team's labeling performance and productivity</p>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <button className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm hover:bg-gray-50">
+                <RefreshCw className="h-4 w-4" />
+                Refresh
               </button>
-            </div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={labelingProgressData}
-                    innerRadius={70}
-                    outerRadius={90}
-                    paddingAngle={4}
-                    dataKey="value"
-                  >
-                    {labelingProgressData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Daily Productivity */}
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <h2 className="font-semibold text-gray-900">Daily Productivity</h2>
-                <p className="text-sm text-gray-500">Items labeled per data type</p>
+              <div className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 shadow-sm">
+                <Calendar className="h-4 w-4 text-gray-500" />
+                <select 
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(e.target.value)}
+                  className="text-sm font-medium text-gray-600 focus:outline-none"
+                >
+                  <option>This Week</option>
+                  <option>This Month</option>
+                  <option>This Quarter</option>
+                  <option>This Year</option>
+                </select>
               </div>
             </div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dailyProductivityData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="images" stackId="a" fill="#3B82F6" name="Images" />
-                  <Bar dataKey="text" stackId="a" fill="#22C55E" name="Text" />
-                  <Bar dataKey="audio" stackId="a" fill="#EAB308" name="Audio" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
           </div>
 
-          {/* Accuracy Trends */}
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <div className="mb-6">
-              <h2 className="font-semibold text-gray-900">Quality Metrics</h2>
-              <p className="text-sm text-gray-500">Accuracy and speed over time</p>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="rounded-xl bg-white p-6 shadow-sm">
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold text-gray-900">Labeling Progress</h2>
+                  <p className="text-sm text-gray-500">Total items: 1,000</p>
+                </div>
+                <button className="rounded-lg p-2 hover:bg-gray-50">
+                  <Download className="h-5 w-5 text-gray-400" />
+                </button>
+              </div>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={labelingProgressData}
+                      innerRadius={70}
+                      outerRadius={90}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {labelingProgressData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={accuracyTrendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="date" />
-                  <YAxis yAxisId="left" domain={[0.8, 1]} tickFormatter={val => `${(val * 100).toFixed(0)}%`} />
-                  <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Line yAxisId="left" type="monotone" dataKey="accuracy" stroke="#3B82F6" name="Accuracy" />
-                  <Line yAxisId="right" type="monotone" dataKey="speed" stroke="#22C55E" name="Speed (items/hour)" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
 
-          {/* Team Performance */}
-          <div className="rounded-xl bg-white p-6 shadow-sm">
-            <div className="mb-6">
-              <h2 className="font-semibold text-gray-900">Team Performance</h2>
-              <p className="text-sm text-gray-500">Tasks completed and accuracy by team</p>
+            <div className="rounded-xl bg-white p-6 shadow-sm">
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h2 className="font-semibold text-gray-900">Daily Productivity</h2>
+                  <p className="text-sm text-gray-500">Items labeled per data type</p>
+                </div>
+              </div>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dailyProductivityData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="images" stackId="a" fill="#3B82F6" name="Images" />
+                    <Bar dataKey="text" stackId="a" fill="#22C55E" name="Text" />
+                    <Bar dataKey="audio" stackId="a" fill="#EAB308" name="Audio" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={teamPerformanceData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="member" type="category" />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="tasks" fill="#3B82F6" name="Tasks Completed" />
-                </BarChart>
-              </ResponsiveContainer>
+
+            <div className="rounded-xl bg-white p-6 shadow-sm">
+              <div className="mb-6">
+                <h2 className="font-semibold text-gray-900">Quality Metrics</h2>
+                <p className="text-sm text-gray-500">Accuracy and speed over time</p>
+              </div>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={accuracyTrendData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis dataKey="date" />
+                    <YAxis yAxisId="left" domain={[0.8, 1]} tickFormatter={val => `${(val * 100).toFixed(0)}%`} />
+                    <YAxis yAxisId="right" orientation="right" domain={[0, 100]} />
+                    <Tooltip />
+                    <Legend />
+                    <Line yAxisId="left" type="monotone" dataKey="accuracy" stroke="#3B82F6" name="Accuracy" />
+                    <Line yAxisId="right" type="monotone" dataKey="speed" stroke="#22C55E" name="Speed (items/hour)" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-white p-6 shadow-sm">
+              <div className="mb-6">
+                <h2 className="font-semibold text-gray-900">Team Performance</h2>
+                <p className="text-sm text-gray-500">Tasks completed and accuracy by team</p>
+              </div>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={teamPerformanceData} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                    <XAxis type="number" />
+                    <YAxis dataKey="member" type="category" />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="tasks" fill="#3B82F6" name="Tasks Completed" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
         </div>

@@ -13,8 +13,8 @@ import {
 } from 'lucide-react'
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Projects', href: '/projects', icon: FileText },
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Datasets', href: '/datasets', icon: Database },
   { name: 'Team', href: '/team', icon: Users },
 ]

@@ -40,7 +40,7 @@ export default function LoginPage() {
   // Handle auth state changes
   useEffect(() => {
     if (isAuthenticated && isInitialized) {
-      const redirectTo = searchParams.get('redirect') || '/dashboard'
+      const redirectTo = searchParams.get('redirect') || '/projects'
       router.push(redirectTo)
     }
   }, [isAuthenticated, isInitialized, router, searchParams])
@@ -52,7 +52,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
-      const redirectTo = searchParams.get('redirect') || '/dashboard'
+      const redirectTo = searchParams.get('redirect') || '/projects'
       router.push(redirectTo)
     } catch (error: any) {
       let errorMessage = error.message || 'An error occurred during sign in'
