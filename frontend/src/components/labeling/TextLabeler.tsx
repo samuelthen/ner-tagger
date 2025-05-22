@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useCallback, useRef, JSX } from 'react';
-import { Search, Settings, Save, X } from 'lucide-react';
+import { Search, Settings, Save, X, Download } from 'lucide-react';
 import { Label, LabelType } from '@/types/project';
 import LabelTypeManager from '@/components/labeling/LabelTypeManager';
 
@@ -220,6 +220,30 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
     return elements;
   };
 
+  const exportLabels = () => {
+    const exportData = {
+      entities: labels.map(label => {
+        const labelType = labelTypes.find(type => type.id === label.label_type_id);
+        return {
+          text: label.value,
+          type: labelType?.key || 'UNKNOWN',
+          start_char: label.start_offset,
+          end_char: label.end_offset
+        };
+      })
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'labels.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Top toolbar */}
@@ -237,13 +261,22 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
           </div>
         </div>
   
-        <button 
-          onClick={() => onSaveLabels(labels)}
-          className="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
-        >
-          <Save className="h-4 w-4" />
-          Save Labels
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={exportLabels}
+            className="flex items-center gap-2 rounded-md bg-gray-600 px-3 py-1.5 text-sm text-white hover:bg-gray-700"
+          >
+            <Download className="h-4 w-4" />
+            Export Labels
+          </button>
+          <button 
+            onClick={() => onSaveLabels(labels)}
+            className="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
+          >
+            <Save className="h-4 w-4" />
+            Save Labels
+          </button>
+        </div>
       </div>
   
       {/* Main content area */}
