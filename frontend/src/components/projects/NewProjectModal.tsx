@@ -264,7 +264,7 @@ export default function NewProjectModal({
             />
           </div>
 
-          <div>
+          {/* <div>
             <label htmlFor="type" className="block text-sm font-medium text-gray-700">
               Project Type
             </label>
@@ -280,7 +280,7 @@ export default function NewProjectModal({
               <option value="Classification">Text Classification</option>
               <option value="Sentiment">Sentiment Analysis</option>
             </select>
-          </div>
+          </div> */}
 
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-gray-700">

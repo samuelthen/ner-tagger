@@ -21,6 +21,7 @@ import { supabase } from '@/lib/supabase'
 interface AuthState {
   user: Profile | null
   token: string | null
+  refreshToken: string | null
   isAuthenticated: boolean
   isInitialized: boolean
   subscription: (() => void) | null
@@ -44,6 +45,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       token: null,
+      refreshToken: null,
       isAuthenticated: false,
       isInitialized: false,
       subscription: null,
@@ -66,6 +68,7 @@ export const useAuthStore = create<AuthState>()(
             set({
               user: null,
               token: null,
+              refreshToken: null,
               isAuthenticated: false,
               isInitialized: true  // Mark as initialized even without session
             })
@@ -90,6 +93,7 @@ export const useAuthStore = create<AuthState>()(
                   set({
                     user: profile,
                     token: session.access_token,
+                    refreshToken: session.refresh_token,
                     isAuthenticated: true
                   })
                 } catch (error) {
@@ -97,6 +101,7 @@ export const useAuthStore = create<AuthState>()(
                   set({
                     user: null,
                     token: null,
+                    refreshToken: null,
                     isAuthenticated: false
                   })
                 }
@@ -104,6 +109,7 @@ export const useAuthStore = create<AuthState>()(
                 set({
                   user: null,
                   token: null,
+                  refreshToken: null,
                   isAuthenticated: false
                 })
               }
@@ -126,6 +132,7 @@ export const useAuthStore = create<AuthState>()(
             set({
               user: profile,
               token: session.access_token,
+              refreshToken: session.refresh_token,
               isAuthenticated: true,
               isInitialized: true
             })
@@ -133,6 +140,7 @@ export const useAuthStore = create<AuthState>()(
             set({
               user: null,
               token: null,
+              refreshToken: null,
               isAuthenticated: false,
               isInitialized: true
             })
@@ -143,6 +151,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: null,
             token: null,
+            refreshToken: null,
             isAuthenticated: false,
             isInitialized: true
           })
@@ -196,6 +205,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: profileData,
             token: data.session?.access_token || null,
+            refreshToken: data.session?.refresh_token || null,
             isAuthenticated: true,
           })
 
@@ -300,6 +310,7 @@ export const useAuthStore = create<AuthState>()(
           if (session) {
             set({
               token: session.access_token,
+              refreshToken: session.refresh_token,
               isAuthenticated: true
             })
             console.log('[Auth] Session refreshed successfully')
@@ -315,16 +326,18 @@ export const useAuthStore = create<AuthState>()(
           console.log('[Auth] Setting session')
           supabase.auth.setSession({
             access_token: session.access_token,
-            refresh_token: session.refresh_token || ''
+            refresh_token: session.refresh_token
           })
           set({
             token: session.access_token,
+            refreshToken: session.refresh_token,
             isAuthenticated: true
           })
         } else {
           set({
             user: null,
             token: null,
+            refreshToken: null,
             isAuthenticated: false
           })
         }
@@ -334,7 +347,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           console.log('[Auth] Attempting logout')
           await supabase.auth.signOut()
-          set({ user: null, token: null, isAuthenticated: false })
+          set({ user: null, token: null, refreshToken: null, isAuthenticated: false })
           console.log('[Auth] Logout successful')
         } catch (error) {
           console.error('[Auth] Logout error:', error)
@@ -347,25 +360,21 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         token: state.token,
+        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated
       }),
       onRehydrateStorage: () => (state) => {
         console.log('[Auth] Rehydrating storage:', {
           hasState: !!state,
           hasUser: !!state?.user,
-          hasToken: !!state?.token
+          hasToken: !!state?.token,
+          hasRefreshToken: !!state?.refreshToken
         })
         
-        if (state?.token) {
+        if (state?.token && state?.refreshToken) {
           supabase.auth.setSession({
             access_token: state.token,
-            refresh_token: '' // Add if using refresh tokens
-          }).then(({ error }) => {
-            if (error) {
-              console.error('[Auth] Session restore error:', error)
-            } else {
-              console.log('[Auth] Session restored successfully')
-            }
+            refresh_token: state.refreshToken
           })
         }
 
