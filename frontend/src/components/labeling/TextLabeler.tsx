@@ -249,7 +249,7 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
       {/* Top toolbar */}
       <div className="flex items-center justify-between border-b bg-white px-4 py-2">
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 rounded-md border px-3 py-1.5">
+          {/* <div className="flex items-center gap-2 rounded-md border px-3 py-1.5">
             <Search className="h-4 w-4 text-gray-400" />
             <input
               type="text"
@@ -258,7 +258,7 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
               placeholder="Search in text..."
               className="w-64 text-sm focus:outline-none"
             />
-          </div>
+          </div> */}
         </div>
   
         <div className="flex items-center gap-2">
@@ -269,13 +269,13 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
             <Download className="h-4 w-4" />
             Export Labels
           </button>
-          <button 
+          {/* <button 
             onClick={() => onSaveLabels(labels)}
             className="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
           >
             <Save className="h-4 w-4" />
             Save Labels
-          </button>
+          </button> */}
         </div>
       </div>
   
@@ -354,7 +354,7 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
                   </div>
   
                   {/* Search section */}
-                  <div className="space-y-2">
+                  {/* <div className="space-y-2">
                     <h4 className="text-sm font-medium text-gray-700">Search Labels</h4>
                     <div className="flex items-center gap-2 rounded-md border px-2 py-1.5">
                       <Search className="h-4 w-4 text-gray-400" />
@@ -366,10 +366,10 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
                         className="w-full text-sm focus:outline-none"
                       />
                     </div>
-                  </div>
+                  </div> */}
   
                   {/* Search options */}
-                  <div className="space-y-2">
+                  {/* <div className="space-y-2">
                     <h4 className="text-sm font-medium text-gray-700">Search Options</h4>
                     <div className="space-y-2">
                       <label className="flex items-center gap-2">
@@ -409,7 +409,7 @@ const TextLabeler: React.FC<TextLabelerProps> = ({
                         <span className="text-sm text-gray-700">Exact match</span>
                       </label>
                     </div>
-                  </div>
+                  </div> */}
   
                   {/* Keyboard shortcuts */}
                   <div className="space-y-2">

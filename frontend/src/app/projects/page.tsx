@@ -139,10 +139,10 @@ export default function ProjectsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <button className="flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          {/* <button className="flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
             <Filter className="h-4 w-4" />
             Filters
-          </button>
+          </button> */}
         </div>
 
         {/* Projects Grid */}
@@ -181,13 +181,13 @@ export default function ProjectsPage() {
                         </p>
                       </div>
                     </div>
-                    <button className="rounded p-1 hover:bg-gray-100 ml-4">
+                    {/* <button className="rounded p-1 hover:bg-gray-100 ml-4">
                       <MoreVertical className="h-5 w-5 text-gray-400" />
-                    </button>
+                    </button> */}
                   </div>
 
                   {/* Team Members */}
-                  <div className="mt-6">
+                  {/* <div className="mt-6">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-medium text-gray-700">Team Members</h4>
                       <span className="text-sm text-gray-500">
@@ -210,7 +210,7 @@ export default function ProjectsPage() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Stats */}
                   <div className="mt-6 grid grid-cols-2 gap-4 border-t pt-3">
@@ -239,12 +239,12 @@ export default function ProjectsPage() {
                       <FileText className="h-4 w-4" />
                       Label Data
                     </Link>
-                    <button className="rounded-md p-2 hover:bg-gray-100">
+                    {/* <button className="rounded-md p-2 hover:bg-gray-100">
                       <Users className="h-4 w-4 text-gray-400" />
                     </button>
                     <button className="rounded-md p-2 hover:bg-gray-100">
                       <Calendar className="h-4 w-4 text-gray-400" />
-                    </button>
+                    </button> */}
                   </div>
                 </div>
               </div>
