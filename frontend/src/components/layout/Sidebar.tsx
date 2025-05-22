@@ -14,9 +14,9 @@ import {
 
 const navigation = [
   { name: 'Projects', href: '/projects', icon: FileText },
+  { name: 'Team', href: '/team', icon: Users },
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Datasets', href: '/datasets', icon: Database },
-  { name: 'Team', href: '/team', icon: Users },
 ]
 
 export default function Sidebar() {

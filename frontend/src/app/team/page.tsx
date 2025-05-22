@@ -188,10 +188,10 @@ export default function TeamsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <button className="flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+          {/* <button className="flex items-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
             <Filter className="h-4 w-4" />
             Filters
-          </button>
+          </button> */}
         </div>
 
         {/* Teams Grid */}
@@ -227,7 +227,7 @@ export default function TeamsPage() {
                   </div>
 
                   {/* Team Members */}
-                  <div className="mt-6">
+                  {/* <div className="mt-6">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-medium text-gray-700">Team Members</h4>
                       <span className="text-sm text-gray-500">{team.members.length} members</span>
@@ -248,20 +248,20 @@ export default function TeamsPage() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Pending Invites */}
-                  {team.pendingInvites > 0 && (
+                  {/* {team.pendingInvites > 0 && (
                     <div className="mt-4">
                       <span className="text-sm text-gray-500">
                         {team.pendingInvites} pending {team.pendingInvites === 1 ? 'invite' : 'invites'}
                       </span>
                     </div>
-                  )}
+                  )} */}
                 </div>
 
                 {/* Action Buttons */}
-                <div className="border-t px-6 py-4">
+                {/* <div className="border-t px-6 py-4">
                   <div className="flex gap-2">
                     <button className="flex flex-1 items-center justify-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100">
                       <UserPlus className="h-4 w-4" />
@@ -274,7 +274,7 @@ export default function TeamsPage() {
                       <Settings className="h-4 w-4 text-gray-400" />
                     </button>
                   </div>
-                </div>
+                </div> */}
               </div>
             ))
           )}
